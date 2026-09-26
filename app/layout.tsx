@@ -1,23 +1,6 @@
 import type { Metadata } from 'next'
-import { Inter, Space_Grotesk, Cairo } from 'next/font/google'
 import './globals.css'
 import Providers from '@/components/Providers'
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-})
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-display',
-})
-
-const cairo = Cairo({
-  subsets: ['arabic', 'latin'],
-  variable: '--font-cairo',
-  weight: ['400', '600', '700', '800'],
-})
 
 export const metadata: Metadata = {
   title: "DON'T PRESS - One press. One challenge. One good deed.",
@@ -31,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${cairo.variable}`}>
+    <html lang="en">
       <body className="min-h-screen">
         <Providers>{children}</Providers>
       </body>
