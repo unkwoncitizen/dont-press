@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 16 17 19;
+    --foreground: 250 248 243;
+  }
+
+  * {
+    @apply border-secondary-gray/20;
+  }
+
+  body {
+    @apply bg-primary-dark text-warm-white antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-coral-red text-white px-6 py-3 rounded-2xl font-semibold transition-all hover:bg-coral-red/90 hover:scale-105 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-warm-white/10 text-warm-white px-6 py-3 rounded-2xl font-semibold transition-all hover:bg-warm-white/20 hover:scale-105 active:scale-95;
+  }
+
+  .card {
+    @apply bg-warm-white/5 backdrop-blur-sm rounded-3xl p-6 border border-warm-white/10 transition-all hover:bg-warm-white/10;
+  }
+
+  .press-button {
+    @apply relative bg-coral-red text-white text-4xl font-display font-bold px-16 py-12 rounded-full transition-all cursor-pointer select-none;
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .press-button:hover {
+    @apply scale-105;
+    animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  .press-button:active {
+    @apply scale-95;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
