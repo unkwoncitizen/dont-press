@@ -4,6 +4,7 @@ import { Heart, MessageCircle, Share2, Send } from 'lucide-react'
 import { useState } from 'react'
 import { Story } from '@/lib/supabase'
 import Image from 'next/image'
+import { useLanguage } from '@/lib/LanguageContext'
 
 interface StoryCardProps {
   story: Story
@@ -27,6 +28,7 @@ const getGradient = (name: string) => {
 export default function StoryCard({ story, onInspire, onComment }: StoryCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
+  const { t, language } = useLanguage()
 
   const reactionCounts = {
     inspired: story.reactions?.filter(r => r.type === 'inspired').length || 0,
@@ -43,7 +45,13 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
     'learn-share': '🧠',
   }
 
-  const userName = story.is_anonymous ? 'Anonymous' : (story.users?.display_name || 'User')
+  const getCategoryName = (cat?: string) => {
+    if (!cat) return ''
+    const key = `cat_${cat.replace(/-/g, '_')}`
+    return t(key) || cat.replace('-', ' ')
+  }
+
+  const userName = story.is_anonymous ? t('anonymous') : (story.users?.display_name || t('user'))
   const userInitial = story.is_anonymous ? '?' : (userName[0] || 'U')
   const gradient = getGradient(userName)
 
@@ -60,12 +68,12 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
           </div>
           <div className="text-sm text-warm-white/50 flex items-center gap-2">
             <span>{categoryEmojis[story.challenges?.category || ''] || '❤️'}</span>
-            <span className="capitalize">{story.challenges?.category?.replace('-', ' ')}</span>
+            <span className="capitalize">{getCategoryName(story.challenges?.category)}</span>
           </div>
         </div>
         {story.chain_id && (
-          <div className="text-xs bg-coral-red/20 text-coral-red px-3 py-1 rounded-full">
-            🔥 Chain #{story.chain_id.slice(0, 6)}
+          <div className="text-xs bg-coral-red/20 text-coral-red px-3 py-1 rounded-full font-medium">
+            🔥 {t('chain_label')} #{story.chain_id.slice(0, 6)}
           </div>
         )}
       </div>
@@ -96,7 +104,7 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
       {/* Challenge Info */}
       {story.challenges && (
         <div className="mb-4 p-4 bg-warm-white/5 rounded-xl border border-warm-white/10">
-          <div className="text-sm text-warm-white/70 mb-1">Challenge</div>
+          <div className="text-sm text-warm-white/70 mb-1">{t('challenge_label')}</div>
           <div className="font-semibold">{story.challenges.title}</div>
           <div className="text-sm text-warm-white/60 mt-1">
             ⏱ {story.challenges.estimated_time} • {story.challenges.difficulty}
@@ -112,7 +120,7 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
         >
           <Heart size={20} className="group-hover:fill-kindness-green" />
           <span className="text-sm font-semibold">
-            {reactionCounts.inspired > 0 ? reactionCounts.inspired : 'Inspire'}
+            {reactionCounts.inspired > 0 ? reactionCounts.inspired : t('inspire')}
           </span>
         </button>
 
@@ -126,13 +134,13 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
           </span>
         </button>
 
-        <button className="flex items-center gap-2 text-warm-white/70 hover:text-warm-white transition ml-auto">
+        <button className="flex items-center gap-2 text-warm-white/70 hover:text-warm-white transition ms-auto">
           <Share2 size={20} />
         </button>
 
         <button className="flex items-center gap-2 text-warm-white/70 hover:text-coral-red transition">
           <Send size={20} />
-          <span className="text-sm font-semibold">Pass it on</span>
+          <span className="text-sm font-semibold">{t('pass_it_on')}</span>
         </button>
       </div>
 
@@ -143,7 +151,7 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
           {story.comments && story.comments.length > 0 && (
             <div className="space-y-3 mb-4">
               {story.comments.map((comment) => {
-                const commentUserName = comment.users?.display_name || 'User'
+                const commentUserName = comment.users?.display_name || t('user')
                 const commentGradient = getGradient(commentUserName)
                 return (
                   <div key={comment.id} className="flex gap-3">
@@ -168,16 +176,16 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Add a comment..."
+              placeholder={t('add_comment_placeholder')}
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               className="flex-1 bg-warm-white/5 border border-warm-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-coral-red/50"
             />
             <button
               onClick={onComment}
-              className="bg-coral-red text-white px-4 py-2 rounded-xl hover:bg-coral-red/90 transition"
+              className="bg-coral-red text-white px-4 py-2 rounded-xl hover:bg-coral-red/90 transition text-sm font-semibold"
             >
-              Post
+              {t('post_comment')}
             </button>
           </div>
         </div>
@@ -185,7 +193,7 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
 
       {/* Time */}
       <div className="mt-4 text-xs text-warm-white/40">
-        {new Date(story.created_at).toLocaleDateString('en-US', {
+        {new Date(story.created_at).toLocaleDateString(language === 'ar' ? 'ar-MA' : 'en-US', {
           month: 'short',
           day: 'numeric',
           hour: 'numeric',

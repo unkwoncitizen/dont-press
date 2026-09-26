@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -17,6 +17,15 @@
   body {
     @apply bg-primary-dark text-warm-white antialiased;
     font-feature-settings: "cv11", "ss01";
+  }
+
+  [dir="rtl"] {
+    font-family: var(--font-cairo), 'Cairo', system-ui, -apple-system, sans-serif;
+  }
+
+  [dir="rtl"] .font-display {
+    font-family: var(--font-cairo), 'Cairo', system-ui, -apple-system, sans-serif;
+    font-weight: 800;
   }
 }
 
@@ -36,7 +45,7 @@
   .press-button {
     @apply relative bg-coral-red text-white text-4xl font-display font-bold px-16 py-12 rounded-full transition-all cursor-pointer select-none;
     animation: pulse-glow 2s ease-in-out infinite, float 3s ease-in-out infinite;
-    box-shadow: 
+    box-shadow:
       0 0 30px rgba(255, 90, 95, 0.6),
       0 0 60px rgba(255, 90, 95, 0.4),
       0 10px 40px rgba(0, 0, 0, 0.3);
@@ -55,7 +64,7 @@
   .press-button:hover {
     @apply scale-110;
     animation: pulse-glow 1s ease-in-out infinite, float 3s ease-in-out infinite;
-    box-shadow: 
+    box-shadow:
       0 0 40px rgba(255, 90, 95, 0.8),
       0 0 80px rgba(255, 90, 95, 0.6),
       0 15px 50px rgba(0, 0, 0, 0.4);
@@ -84,10 +93,10 @@
 }
 
 @keyframes float {
-  0%, 100% { 
+  0%, 100% {
     transform: translateY(0px);
   }
-  50% { 
+  50% {
     transform: translateY(-10px);
   }
 }

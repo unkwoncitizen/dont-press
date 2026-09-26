@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useLanguage, LanguageToggle } from '@/lib/LanguageContext'
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -12,6 +13,7 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const { t } = useLanguage()
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,7 +27,7 @@ export default function AuthPage() {
           password,
         })
         if (error) throw error
-        alert('Check your email for the confirmation link!')
+        alert(t('auth_check_email'))
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -52,22 +54,26 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-dark via-primary-dark to-deep-green/20 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-gradient-to-b from-primary-dark via-primary-dark to-deep-green/20 flex flex-col items-center justify-center px-6 py-12 relative">
+      <div className="absolute top-6 right-6">
+        <LanguageToggle />
+      </div>
+
       <div className="w-full max-w-md">
         {/* Logo */}
         <Link href="/" className="block text-center mb-8">
           <h1 className="text-4xl font-display font-bold text-coral-red mb-2">
-            DON'T PRESS
+            {t('brand_name')}
           </h1>
           <p className="text-warm-white/60 text-sm">
-            You pressed it. Now do something worth passing on.
+            {t('after_press_note')}
           </p>
         </Link>
 
         {/* Auth Card */}
         <div className="card">
           <h2 className="text-2xl font-bold text-warm-white mb-6">
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
+            {isSignUp ? t('auth_create') : t('auth_welcome')}
           </h2>
 
           {error && (
@@ -80,7 +86,7 @@ export default function AuthPage() {
           <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
             <div>
               <label className="block text-sm font-semibold text-warm-white mb-2">
-                Email
+                {t('auth_email')}
               </label>
               <input
                 type="email"
@@ -94,7 +100,7 @@ export default function AuthPage() {
 
             <div>
               <label className="block text-sm font-semibold text-warm-white mb-2">
-                Password
+                {t('auth_password')}
               </label>
               <input
                 type="password"
@@ -112,7 +118,7 @@ export default function AuthPage() {
               disabled={loading}
               className="w-full bg-coral-red text-white px-6 py-3 rounded-xl font-semibold hover:bg-coral-red/90 transition disabled:opacity-50"
             >
-              {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+              {loading ? t('loading') : isSignUp ? t('nav_signup') : t('nav_signin')}
             </button>
           </form>
 
@@ -123,7 +129,7 @@ export default function AuthPage() {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-4 bg-warm-white/5 text-warm-white/50">
-                or continue with
+                {t('auth_or_continue')}
               </span>
             </div>
           </div>
@@ -156,7 +162,7 @@ export default function AuthPage() {
 
           {/* Toggle Sign In/Up */}
           <div className="text-center text-sm text-warm-white/60">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            {isSignUp ? t('auth_have_account') : t('auth_no_account')}{' '}
             <button
               onClick={() => {
                 setIsSignUp(!isSignUp)
@@ -164,14 +170,14 @@ export default function AuthPage() {
               }}
               className="text-coral-red font-semibold hover:underline"
             >
-              {isSignUp ? 'Sign In' : 'Sign Up'}
+              {isSignUp ? t('nav_signin') : t('nav_signup')}
             </button>
           </div>
         </div>
 
         {/* Age Notice */}
         <p className="text-center text-xs text-warm-white/40 mt-6">
-          By continuing, you confirm that you are 18 years or older.
+          {t('auth_age_notice')}
         </p>
       </div>
     </div>

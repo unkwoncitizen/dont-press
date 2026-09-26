@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import { Camera, Upload } from 'lucide-react'
 import confetti from 'canvas-confetti'
+import { useLanguage } from '@/lib/LanguageContext'
 
 export default function CompletePage({ params }: { params: { id: string } }) {
   const [user, setUser] = useState<any>(null)
@@ -17,6 +18,7 @@ export default function CompletePage({ params }: { params: { id: string } }) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { t } = useLanguage()
 
   useEffect(() => {
     const checkUser = async () => {
@@ -132,7 +134,7 @@ export default function CompletePage({ params }: { params: { id: string } }) {
   if (!assignment || !challenge) {
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center">
-        <div className="text-warm-white/50">Loading...</div>
+        <div className="text-warm-white/50">{t('loading')}</div>
       </div>
     )
   }
@@ -147,16 +149,16 @@ export default function CompletePage({ params }: { params: { id: string } }) {
           <div className="text-center mb-12">
             <div className="text-6xl mb-4">❤️</div>
             <h1 className="text-4xl md:text-5xl font-display font-bold text-warm-white mb-4">
-              You did it!
+              {t('you_did_it')}
             </h1>
             <p className="text-warm-white/60 text-lg">
-              Now tell your story
+              {t('now_tell_story')}
             </p>
           </div>
 
           {/* Challenge Reminder */}
           <div className="card mb-8">
-            <div className="text-sm text-warm-white/50 mb-2">Your Challenge</div>
+            <div className="text-sm text-warm-white/50 mb-2">{t('challenge_label')}</div>
             <h2 className="text-2xl font-bold text-warm-white mb-2">
               {challenge.title}
             </h2>
@@ -166,31 +168,31 @@ export default function CompletePage({ params }: { params: { id: string } }) {
           {/* Story Form */}
           <form onSubmit={handleSubmit} className="card">
             <h3 className="text-xl font-bold text-warm-white mb-6">
-              Share your experience
+              {t('share_experience')}
             </h3>
 
             {/* Story Content */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-warm-white mb-2">
-                What happened? *
+                {t('what_happened')}
               </label>
               <textarea
                 value={storyContent}
                 onChange={(e) => setStoryContent(e.target.value)}
                 required
                 rows={6}
-                placeholder="Tell your story... What did you do? How did it go? What happened afterward?"
+                placeholder={t('story_placeholder')}
                 className="w-full bg-warm-white/5 border border-warm-white/10 rounded-xl px-4 py-3 text-warm-white focus:outline-none focus:border-coral-red/50 resize-none"
               />
               <p className="text-xs text-warm-white/40 mt-2">
-                Share the details that made this moment special
+                {t('story_hint')}
               </p>
             </div>
 
             {/* Photo Upload */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-warm-white mb-3">
-                Add a photo (optional)
+                {t('add_photo')}
               </label>
 
               {photoPreview ? (
@@ -202,16 +204,16 @@ export default function CompletePage({ params }: { params: { id: string } }) {
                       setPhotoFile(null)
                       setPhotoPreview(null)
                     }}
-                    className="absolute top-3 right-3 bg-coral-red text-white px-3 py-1 rounded-lg text-sm hover:bg-coral-red/90"
+                    className="absolute top-3 right-3 bg-coral-red text-white px-3 py-1 rounded-lg text-sm hover:bg-coral-red/90 font-medium"
                   >
-                    Remove
+                    {t('remove')}
                   </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   <label className="flex flex-col items-center justify-center gap-2 bg-warm-white/5 border border-warm-white/10 rounded-xl p-6 cursor-pointer hover:bg-warm-white/10 transition">
                     <Camera size={32} className="text-warm-white/50" />
-                    <span className="text-sm text-warm-white/70">Camera</span>
+                    <span className="text-sm text-warm-white/70">{t('camera')}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -223,7 +225,7 @@ export default function CompletePage({ params }: { params: { id: string } }) {
 
                   <label className="flex flex-col items-center justify-center gap-2 bg-warm-white/5 border border-warm-white/10 rounded-xl p-6 cursor-pointer hover:bg-warm-white/10 transition">
                     <Upload size={32} className="text-warm-white/50" />
-                    <span className="text-sm text-warm-white/70">Upload</span>
+                    <span className="text-sm text-warm-white/70">{t('upload')}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -235,7 +237,7 @@ export default function CompletePage({ params }: { params: { id: string } }) {
               )}
 
               <p className="text-xs text-warm-white/40 mt-2">
-                💡 Remember: Never photograph people without their permission
+                {t('photo_safety_tip')}
               </p>
             </div>
 
@@ -249,7 +251,7 @@ export default function CompletePage({ params }: { params: { id: string } }) {
                   className="w-5 h-5 rounded border-warm-white/20 bg-warm-white/5 checked:bg-coral-red"
                 />
                 <span className="text-sm text-warm-white">
-                  Post anonymously (your name won't be shown)
+                  {t('post_anonymously')}
                 </span>
               </label>
             </div>
@@ -260,11 +262,11 @@ export default function CompletePage({ params }: { params: { id: string } }) {
               disabled={loading || !storyContent.trim()}
               className="w-full bg-coral-red text-white px-8 py-4 rounded-2xl font-display font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
             >
-              {loading ? 'Publishing...' : 'Publish Your Story'}
+              {loading ? t('publishing') : t('publish_story')}
             </button>
 
             <p className="text-xs text-warm-white/40 text-center mt-4">
-              Your story will inspire others to do good
+              {t('story_inspires_note')}
             </p>
           </form>
         </div>

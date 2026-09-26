@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import { categories } from '@/lib/challenges-data'
+import { useLanguage } from '@/lib/LanguageContext'
 
 export default function PressPage() {
   const [user, setUser] = useState<any>(null)
@@ -12,6 +13,7 @@ export default function PressPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [challenge, setChallenge] = useState<any>(null)
   const router = useRouter()
+  const { t } = useLanguage()
 
   useEffect(() => {
     const checkUser = async () => {
@@ -71,13 +73,22 @@ export default function PressPage() {
   }
 
   const handlePassChallenge = () => {
-    router.push('/app/pass')
+    router.push('/app')
+  }
+
+  const getCategoryTranslation = (categoryId: string) => {
+    const catKey = `cat_${categoryId.replace(/-/g, '_')}`
+    const descKey = `${catKey}_desc`
+    return {
+      name: t(catKey),
+      description: t(descKey),
+    }
   }
 
   if (!user) {
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center">
-        <div className="text-warm-white/50">Loading...</div>
+        <div className="text-warm-white/50">{t('loading')}</div>
       </div>
     )
   }
@@ -92,16 +103,16 @@ export default function PressPage() {
           {step === 'intro' && (
             <div className="min-h-[80vh] flex flex-col items-center justify-center text-center">
               <h1 className="text-6xl md:text-8xl font-display font-bold text-warm-white mb-8 animate-float">
-                DON'T PRESS
+                {t('brand_name')}
               </h1>
               <button
                 onClick={handlePressButton}
                 className="press-button mb-8"
               >
-                PRESS
+                {t('press_verb')}
               </button>
               <p className="text-warm-white/50 text-lg">
-                You know you want to...
+                {t('you_know_you_want')}
               </p>
             </div>
           )}
@@ -111,32 +122,35 @@ export default function PressPage() {
             <div className="min-h-[80vh] flex flex-col items-center justify-center">
               <div className="text-center mb-12 space-y-6">
                 <h2 className="text-4xl md:text-5xl font-display font-bold text-warm-white">
-                  You pressed it.
+                  {t('you_pressed_it')}
                 </h2>
                 <p className="text-2xl md:text-3xl font-display text-warm-white/70">
-                  There is no going back.
+                  {t('no_going_back')}
                 </p>
                 <p className="text-xl text-coral-red font-semibold">
-                  Choose your challenge.
+                  {t('choose_challenge_title')}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => handleSelectCategory(category.id)}
-                    className="card hover:scale-105 hover:border-coral-red/50 transition-all text-center p-6 cursor-pointer"
-                  >
-                    <div className="text-5xl mb-3">{category.emoji}</div>
-                    <h3 className="text-lg font-semibold text-warm-white mb-1">
-                      {category.name}
-                    </h3>
-                    <p className="text-xs text-warm-white/60">
-                      {category.description}
-                    </p>
-                  </button>
-                ))}
+                {categories.map((category) => {
+                  const translated = getCategoryTranslation(category.id)
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => handleSelectCategory(category.id)}
+                      className="card hover:scale-105 hover:border-coral-red/50 transition-all text-center p-6 cursor-pointer"
+                    >
+                      <div className="text-5xl mb-3">{category.emoji}</div>
+                      <h3 className="text-lg font-semibold text-warm-white mb-1">
+                        {translated.name || category.name}
+                      </h3>
+                      <p className="text-xs text-warm-white/60">
+                        {translated.description || category.description}
+                      </p>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -146,17 +160,17 @@ export default function PressPage() {
             <div className="min-h-[80vh] flex flex-col items-center justify-center">
               <div className="card max-w-2xl w-full text-center p-8 md:p-12">
                 <div className="mb-8">
-                  <p className="text-warm-white/50 text-sm mb-2">YOU CHOSE</p>
+                  <p className="text-warm-white/50 text-sm mb-2">{t('you_chose')}</p>
                   <h2 className="text-3xl font-display font-bold text-coral-red mb-8 flex items-center justify-center gap-3">
                     <span className="text-4xl">
                       {categories.find(c => c.id === selectedCategory)?.emoji}
                     </span>
-                    {categories.find(c => c.id === selectedCategory)?.name.toUpperCase()}
+                    {getCategoryTranslation(selectedCategory || '').name || selectedCategory}
                   </h2>
                 </div>
 
                 <div className="border-t border-b border-warm-white/20 py-8 mb-8">
-                  <p className="text-warm-white/50 text-sm mb-4">YOUR CHALLENGE</p>
+                  <p className="text-warm-white/50 text-sm mb-4">{t('your_challenge')}</p>
                   <h3 className="text-2xl md:text-3xl font-bold text-warm-white mb-4">
                     {challenge.title}
                   </h3>
@@ -175,12 +189,12 @@ export default function PressPage() {
                   </span>
                   {challenge.requires_other_person && (
                     <span className="flex items-center gap-1">
-                      👥 Requires another person
+                      👥 {t('requires_other_person')}
                     </span>
                   )}
                   {challenge.requires_money && (
                     <span className="flex items-center gap-1">
-                      💰 May require money
+                      💰 {t('requires_money')}
                     </span>
                   )}
                 </div>
@@ -191,18 +205,18 @@ export default function PressPage() {
                     onClick={handleAcceptChallenge}
                     className="flex-1 bg-kindness-green text-white px-8 py-4 rounded-2xl font-display font-bold text-lg hover:scale-105 transition-transform"
                   >
-                    ACCEPT
+                    {t('accept')}
                   </button>
                   <button
                     onClick={handlePassChallenge}
                     className="flex-1 bg-warm-white/10 text-warm-white px-8 py-4 rounded-2xl font-display font-bold text-lg hover:bg-warm-white/20 transition-all"
                   >
-                    PASS
+                    {t('pass')}
                   </button>
                 </div>
 
                 <p className="text-xs text-warm-white/40 mt-6">
-                  Not for you? That's okay. Pass it on to someone else.
+                  {t('pass_note')}
                 </p>
               </div>
             </div>

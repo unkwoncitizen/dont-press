@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
 import { Story } from '@/lib/supabase'
 import { categories } from '@/lib/challenges-data'
+import { useLanguage } from '@/lib/LanguageContext'
 
 export default function DiscoverPage() {
   const [user, setUser] = useState<any>(null)
@@ -14,6 +15,7 @@ export default function DiscoverPage() {
   const [activeTab, setActiveTab] = useState<'inspiring' | 'recent' | 'chains'>('inspiring')
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { t } = useLanguage()
 
   useEffect(() => {
     const checkUser = async () => {
@@ -41,13 +43,10 @@ export default function DiscoverPage() {
         `)
 
       if (activeTab === 'inspiring') {
-        // Stories with most "inspired" reactions
         query = query.order('created_at', { ascending: false })
       } else if (activeTab === 'chains') {
-        // Stories that are part of chains
         query = query.not('chain_id', 'is', null)
       } else {
-        // Recent stories
         query = query.order('created_at', { ascending: false })
       }
 
@@ -62,10 +61,15 @@ export default function DiscoverPage() {
     }
   }
 
+  const getCategoryName = (catId: string) => {
+    const key = `cat_${catId.replace(/-/g, '_')}`
+    return t(key) || catId
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center">
-        <div className="text-warm-white/50">Loading...</div>
+        <div className="text-warm-white/50">{t('loading')}</div>
       </div>
     )
   }
@@ -79,10 +83,10 @@ export default function DiscoverPage() {
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-display font-bold text-warm-white mb-4">
-              Discover
+              {t('discover_title')}
             </h1>
             <p className="text-warm-white/60 text-lg">
-              Stories that inspire action
+              {t('discover_subtitle')}
             </p>
           </div>
 
@@ -95,7 +99,7 @@ export default function DiscoverPage() {
               >
                 <div className="text-4xl mb-2">{category.emoji}</div>
                 <div className="text-sm font-semibold text-warm-white">
-                  {category.name}
+                  {getCategoryName(category.id)}
                 </div>
               </button>
             ))}
@@ -111,7 +115,7 @@ export default function DiscoverPage() {
                   : 'bg-warm-white/10 text-warm-white hover:bg-warm-white/20'
               }`}
             >
-              ❤️ Most Inspiring
+              {t('tab_most_inspiring')}
             </button>
             <button
               onClick={() => setActiveTab('recent')}
@@ -121,7 +125,7 @@ export default function DiscoverPage() {
                   : 'bg-warm-white/10 text-warm-white hover:bg-warm-white/20'
               }`}
             >
-              ✨ Recent Stories
+              {t('tab_recent_stories')}
             </button>
             <button
               onClick={() => setActiveTab('chains')}
@@ -131,7 +135,7 @@ export default function DiscoverPage() {
                   : 'bg-warm-white/10 text-warm-white hover:bg-warm-white/20'
               }`}
             >
-              🔥 Active Chains
+              {t('tab_active_chains')}
             </button>
           </div>
 
@@ -139,13 +143,13 @@ export default function DiscoverPage() {
           {stories.length === 0 ? (
             <div className="card text-center py-12">
               <p className="text-warm-white/50 mb-4">
-                No stories found yet.
+                {t('no_stories_found')}
               </p>
               <button
                 onClick={() => router.push('/app/press')}
                 className="btn-primary"
               >
-                Be the first
+                {t('be_the_first')}
               </button>
             </div>
           ) : (

@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
+import { useLanguage } from '@/lib/LanguageContext'
 
 export default function ChainsPage() {
   const [user, setUser] = useState<any>(null)
   const [chains, setChains] = useState<any[]>([])
   const router = useRouter()
+  const { t, language } = useLanguage()
 
   useEffect(() => {
     const checkUser = async () => {
@@ -40,7 +42,7 @@ export default function ChainsPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center">
-        <div className="text-warm-white/50">Loading...</div>
+        <div className="text-warm-white/50">{t('loading')}</div>
       </div>
     )
   }
@@ -53,10 +55,10 @@ export default function ChainsPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-display font-bold text-warm-white mb-4">
-              Your Chains
+              {t('your_chains')}
             </h1>
             <p className="text-warm-white/60 text-lg">
-              Every good deed can start a chain reaction
+              {t('chains_subtitle')}
             </p>
           </div>
 
@@ -64,13 +66,13 @@ export default function ChainsPage() {
             <div className="card text-center py-12">
               <div className="text-6xl mb-4">🔥</div>
               <p className="text-warm-white/50 mb-4">
-                Your first chain could start here.
+                {t('first_chain_start')}
               </p>
               <button
                 onClick={() => router.push('/app/press')}
                 className="btn-primary"
               >
-                Start a chain
+                {t('start_a_chain')}
               </button>
             </div>
           ) : (
@@ -79,7 +81,7 @@ export default function ChainsPage() {
                 <div key={chainNode.id} className="card relative overflow-hidden">
                   {/* Background flame effect */}
                   <div className="absolute inset-0 bg-gradient-to-br from-coral-red/5 via-warm-orange/5 to-transparent pointer-events-none"></div>
-                  
+
                   <div className="relative">
                     {/* Chain Header */}
                     <div className="flex items-start justify-between mb-6">
@@ -91,27 +93,27 @@ export default function ChainsPage() {
                           </div>
                           <div className="absolute -inset-2 bg-gradient-to-br from-coral-red/20 to-warm-orange/20 rounded-full animate-ping"></div>
                         </div>
-                        
+
                         <div>
                           <div className="font-display font-bold text-warm-white text-xl mb-1">
-                            Chain #{chainNode.chain_id.slice(0, 8)}
+                            {t('chain_number')}{chainNode.chain_id.slice(0, 8)}
                           </div>
                           <div className="text-sm text-warm-white/60 flex items-center gap-2">
                             <span className="inline-flex items-center gap-1 bg-warm-orange/20 text-warm-orange px-2 py-1 rounded-full text-xs font-semibold">
                               <span>📍</span>
-                              Position #{chainNode.position}
+                              {t('position_number')}{chainNode.position}
                             </span>
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Chain Length */}
                       <div className="text-right">
                         <div className="text-3xl font-bold bg-gradient-to-br from-coral-red to-warm-orange bg-clip-text text-transparent">
                           {chainNode.chains?.length || 1}
                         </div>
                         <div className="text-xs text-warm-white/50 font-semibold">
-                          people in chain
+                          {t('people_in_chain')}
                         </div>
                       </div>
                     </div>
@@ -141,7 +143,7 @@ export default function ChainsPage() {
                     {/* Story Preview */}
                     {chainNode.stories && (
                       <div className="bg-gradient-to-br from-warm-white/10 to-warm-white/5 rounded-2xl p-4 border border-warm-white/10 backdrop-blur-sm">
-                        <div className="text-xs text-warm-white/50 mb-2 font-semibold">YOUR CONTRIBUTION</div>
+                        <div className="text-xs text-warm-white/50 mb-2 font-semibold">{t('your_contribution')}</div>
                         <p className="text-sm text-warm-white/90 leading-relaxed">
                           {chainNode.stories.content.slice(0, 150)}
                           {chainNode.stories.content.length > 150 ? '...' : ''}
@@ -153,12 +155,12 @@ export default function ChainsPage() {
                     <div className="mt-6 flex items-center gap-4 text-xs">
                       <div className="flex items-center gap-1 text-warm-white/50">
                         <span>🌟</span>
-                        <span>Keep it going!</span>
+                        <span>{t('keep_it_going')}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-warm-white/40 ml-auto">
+                      <div className="flex items-center gap-1 text-warm-white/40 ms-auto">
                         <span>📅</span>
                         <span>
-                          {new Date(chainNode.created_at).toLocaleDateString('en-US', {
+                          {new Date(chainNode.created_at).toLocaleDateString(language === 'ar' ? 'ar-MA' : 'en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric',

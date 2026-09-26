@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
 import { Story } from '@/lib/supabase'
+import { useLanguage } from '@/lib/LanguageContext'
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null)
@@ -18,6 +19,7 @@ export default function ProfilePage() {
     peopleInspired: 0,
   })
   const router = useRouter()
+  const { t } = useLanguage()
 
   useEffect(() => {
     const checkUser = async () => {
@@ -109,7 +111,7 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center">
-        <div className="text-warm-white/50">Loading...</div>
+        <div className="text-warm-white/50">{t('loading')}</div>
       </div>
     )
   }
@@ -126,10 +128,10 @@ export default function ProfilePage() {
               {profile?.display_name?.[0] || user.email?.[0] || 'U'}
             </div>
             <h1 className="text-3xl font-display font-bold text-warm-white mb-2">
-              {profile?.display_name || user.email?.split('@')[0] || 'User'}
+              {profile?.display_name || user.email?.split('@')[0] || t('user')}
             </h1>
             <p className="text-warm-white/60">
-              {profile?.bio || 'Try to leave people better than you found them.'}
+              {profile?.bio || t('default_bio')}
             </p>
           </div>
 
@@ -140,7 +142,7 @@ export default function ProfilePage() {
                 {stats.completedChallenges}
               </div>
               <div className="text-sm text-warm-white/60">
-                ❤️ Good Deeds
+                ❤️ {t('stat_good_deeds')}
               </div>
             </div>
 
@@ -149,7 +151,7 @@ export default function ProfilePage() {
                 {stats.totalChallenges}
               </div>
               <div className="text-sm text-warm-white/60">
-                🎯 Challenges
+                🎯 {t('stat_challenges')}
               </div>
             </div>
 
@@ -158,7 +160,7 @@ export default function ProfilePage() {
                 {stats.activeChains}
               </div>
               <div className="text-sm text-warm-white/60">
-                🔥 Chains
+                🔥 {t('stat_chains')}
               </div>
             </div>
 
@@ -167,7 +169,7 @@ export default function ProfilePage() {
                 {stats.peopleInspired}
               </div>
               <div className="text-sm text-warm-white/60">
-                ✨ Inspired
+                ✨ {t('stat_inspired')}
               </div>
             </div>
           </div>
@@ -175,19 +177,19 @@ export default function ProfilePage() {
           {/* Recent Stories */}
           <div>
             <h2 className="text-2xl font-display font-bold text-warm-white mb-6">
-              Your Stories
+              {t('your_stories')}
             </h2>
 
             {stories.length === 0 ? (
               <div className="card text-center py-12">
                 <p className="text-warm-white/50 mb-4">
-                  You haven't shared any stories yet.
+                  {t('no_stories_profile')}
                 </p>
                 <button
                   onClick={() => router.push('/app/press')}
                   className="btn-primary"
                 >
-                  Start your first challenge
+                  {t('start_first_challenge')}
                 </button>
               </div>
             ) : (

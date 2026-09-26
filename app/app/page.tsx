@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
 import { Story } from '@/lib/supabase'
+import { useLanguage } from '@/lib/LanguageContext'
 
 export default function AppPage() {
   const [user, setUser] = useState<any>(null)
@@ -13,6 +14,7 @@ export default function AppPage() {
   const [loading, setLoading] = useState(true)
   const [inspiringStoryId, setInspiringStoryId] = useState<string | null>(null)
   const router = useRouter()
+  const { t } = useLanguage()
 
   useEffect(() => {
     const checkUser = async () => {
@@ -55,7 +57,7 @@ export default function AppPage() {
 
     // Show animation
     setInspiringStoryId(storyId)
-    
+
     // Create floating hearts animation
     const storyCard = document.querySelector(`[data-story-id="${storyId}"]`)
     if (storyCard) {
@@ -68,13 +70,13 @@ export default function AppPage() {
           heart.style.zIndex = '9999'
           heart.style.pointerEvents = 'none'
           heart.style.animation = 'float-up 2s ease-out forwards'
-          
+
           const rect = storyCard.getBoundingClientRect()
           heart.style.left = `${rect.left + Math.random() * rect.width}px`
           heart.style.top = `${rect.top + rect.height / 2}px`
-          
+
           document.body.appendChild(heart)
-          
+
           setTimeout(() => heart.remove(), 2000)
         }, i * 100)
       }
@@ -90,7 +92,7 @@ export default function AppPage() {
         })
 
       if (error) throw error
-      
+
       // Wait for animation to finish
       setTimeout(() => {
         setInspiringStoryId(null)
@@ -105,7 +107,7 @@ export default function AppPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center">
-        <div className="text-warm-white/50">Loading...</div>
+        <div className="text-warm-white/50">{t('loading')}</div>
       </div>
     )
   }
@@ -134,19 +136,19 @@ export default function AppPage() {
           {/* Hero Section */}
           <div className="text-center mb-12">
             <h1 className="text-5xl md:text-7xl font-display font-bold text-warm-white mb-4">
-              DON'T PRESS
+              {t('brand_name')}
             </h1>
             <p className="text-warm-white/60 mb-8">
-              18,421 people pressed today
+              {t('pressed_today')}
             </p>
             <button
               onClick={() => router.push('/app/press')}
               className="press-button scale-75 md:scale-100"
             >
-              PRESS
+              {t('press_verb')}
             </button>
             <p className="text-warm-white/40 text-sm mt-6">
-              What happens after the press is up to you.
+              {t('after_press_note')}
             </p>
           </div>
 
@@ -154,26 +156,26 @@ export default function AppPage() {
           <div className="mt-16">
             <h2 className="text-2xl font-display font-bold text-warm-white mb-6 flex items-center gap-3">
               <span className="text-3xl">❤️</span>
-              People who pressed
+              {t('people_who_pressed')}
             </h2>
 
             {stories.length === 0 ? (
               <div className="card text-center py-12">
                 <p className="text-warm-white/50 mb-4">
-                  The world is waiting for its first good deed.
+                  {t('no_stories_feed')}
                 </p>
                 <button
                   onClick={() => router.push('/app/press')}
                   className="btn-primary"
                 >
-                  Be the first
+                  {t('be_the_first')}
                 </button>
               </div>
             ) : (
               <div className="space-y-6">
                 {stories.map((story) => (
-                  <div 
-                    key={story.id} 
+                  <div
+                    key={story.id}
                     data-story-id={story.id}
                     className={inspiringStoryId === story.id ? 'animate-pulse' : ''}
                   >
