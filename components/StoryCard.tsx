@@ -11,6 +11,19 @@ interface StoryCardProps {
   onComment?: () => void
 }
 
+const getGradient = (name: string) => {
+  const gradients = [
+    'from-coral-red to-warm-orange',
+    'from-warm-orange to-soft-yellow',
+    'from-kindness-green to-coral-red',
+    'from-soft-yellow to-kindness-green',
+    'from-coral-red to-kindness-green',
+    'from-warm-orange to-kindness-green',
+  ]
+  const index = name.charCodeAt(0) % gradients.length
+  return gradients[index]
+}
+
 export default function StoryCard({ story, onInspire, onComment }: StoryCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
@@ -30,16 +43,20 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
     'learn-share': '🧠',
   }
 
+  const userName = story.is_anonymous ? 'Anonymous' : (story.users?.display_name || 'User')
+  const userInitial = story.is_anonymous ? '?' : (userName[0] || 'U')
+  const gradient = getGradient(userName)
+
   return (
     <div className="card hover:shadow-xl transition-all">
       {/* User Info */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-coral-red to-warm-orange flex items-center justify-center text-white font-bold">
-          {story.is_anonymous ? '?' : (story.users?.display_name?.[0] || story.users?.email?.[0] || 'U')}
+        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-lg`}>
+          {userInitial}
         </div>
         <div className="flex-1">
           <div className="font-semibold">
-            {story.is_anonymous ? 'Anonymous' : (story.users?.display_name || 'User')}
+            {userName}
           </div>
           <div className="text-sm text-warm-white/50 flex items-center gap-2">
             <span>{categoryEmojis[story.challenges?.category || ''] || '❤️'}</span>
@@ -125,21 +142,25 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
           {/* Existing Comments */}
           {story.comments && story.comments.length > 0 && (
             <div className="space-y-3 mb-4">
-              {story.comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-warm-orange to-soft-yellow flex items-center justify-center text-white text-sm font-bold">
-                    {comment.users?.display_name?.[0] || 'U'}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold">
-                      {comment.users?.display_name || 'User'}
+              {story.comments.map((comment) => {
+                const commentUserName = comment.users?.display_name || 'User'
+                const commentGradient = getGradient(commentUserName)
+                return (
+                  <div key={comment.id} className="flex gap-3">
+                    <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${commentGradient} flex items-center justify-center text-white text-sm font-bold`}>
+                      {commentUserName[0] || 'U'}
                     </div>
-                    <div className="text-sm text-warm-white/80">
-                      {comment.content}
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold">
+                        {commentUserName}
+                      </div>
+                      <div className="text-sm text-warm-white/80">
+                        {comment.content}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 

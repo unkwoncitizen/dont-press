@@ -35,12 +35,30 @@
 
   .press-button {
     @apply relative bg-coral-red text-white text-4xl font-display font-bold px-16 py-12 rounded-full transition-all cursor-pointer select-none;
-    animation: pulse-glow 2s ease-in-out infinite;
+    animation: pulse-glow 2s ease-in-out infinite, float 3s ease-in-out infinite;
+    box-shadow: 
+      0 0 30px rgba(255, 90, 95, 0.6),
+      0 0 60px rgba(255, 90, 95, 0.4),
+      0 10px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  .press-button::before {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(255, 90, 95, 0.3) 0%, transparent 70%);
+    animation: ring-pulse 2s ease-in-out infinite;
+    z-index: -1;
   }
 
   .press-button:hover {
-    @apply scale-105;
-    animation: pulse-glow 1.5s ease-in-out infinite;
+    @apply scale-110;
+    animation: pulse-glow 1s ease-in-out infinite, float 3s ease-in-out infinite;
+    box-shadow: 
+      0 0 40px rgba(255, 90, 95, 0.8),
+      0 0 80px rgba(255, 90, 95, 0.6),
+      0 15px 50px rgba(0, 0, 0, 0.4);
   }
 
   .press-button:active {
@@ -51,5 +69,36 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 90, 95, 0.5), 0 0 40px rgba(255, 90, 95, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 90, 95, 0.8), 0 0 60px rgba(255, 90, 95, 0.5);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px);
+  }
+  50% { 
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes ring-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
   }
 }

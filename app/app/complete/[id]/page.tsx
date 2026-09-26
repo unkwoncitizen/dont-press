@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import { Camera, Upload } from 'lucide-react'
+import confetti from 'canvas-confetti'
 
 export default function CompletePage({ params }: { params: { id: string } }) {
   const [user, setUser] = useState<any>(null)
@@ -109,8 +110,17 @@ export default function CompletePage({ params }: { params: { id: string } }) {
         .update({ status: 'completed', completed_at: new Date().toISOString() })
         .eq('id', assignment.id)
 
-      // Redirect to story view or feed
-      router.push('/app')
+      // 🎉 CELEBRATE WITH CONFETTI!
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      })
+
+      // Wait a moment, then redirect
+      setTimeout(() => {
+        router.push('/app')
+      }, 1500)
     } catch (error) {
       console.error('Error submitting story:', error)
       alert('Error submitting story. Please try again.')

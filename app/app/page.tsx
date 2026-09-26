@@ -11,6 +11,7 @@ export default function AppPage() {
   const [user, setUser] = useState<any>(null)
   const [stories, setStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
+  const [inspiringStoryId, setInspiringStoryId] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -52,6 +53,33 @@ export default function AppPage() {
   const handleInspire = async (storyId: string) => {
     if (!user) return
 
+    // Show animation
+    setInspiringStoryId(storyId)
+    
+    // Create floating hearts animation
+    const storyCard = document.querySelector(`[data-story-id="${storyId}"]`)
+    if (storyCard) {
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          const heart = document.createElement('div')
+          heart.innerHTML = '❤️'
+          heart.style.position = 'fixed'
+          heart.style.fontSize = '24px'
+          heart.style.zIndex = '9999'
+          heart.style.pointerEvents = 'none'
+          heart.style.animation = 'float-up 2s ease-out forwards'
+          
+          const rect = storyCard.getBoundingClientRect()
+          heart.style.left = `${rect.left + Math.random() * rect.width}px`
+          heart.style.top = `${rect.top + rect.height / 2}px`
+          
+          document.body.appendChild(heart)
+          
+          setTimeout(() => heart.remove(), 2000)
+        }, i * 100)
+      }
+    }
+
     try {
       const { error } = await supabase
         .from('reactions')
@@ -62,9 +90,15 @@ export default function AppPage() {
         })
 
       if (error) throw error
-      loadStories()
+      
+      // Wait for animation to finish
+      setTimeout(() => {
+        setInspiringStoryId(null)
+        loadStories()
+      }, 1000)
     } catch (error) {
       console.error('Error adding reaction:', error)
+      setInspiringStoryId(null)
     }
   }
 
@@ -79,6 +113,20 @@ export default function AppPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-dark via-primary-dark to-deep-green/20 pb-24 md:pb-8">
       <Navigation />
+
+      {/* Floating hearts animation */}
+      <style jsx global>{`
+        @keyframes float-up {
+          0% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-100px) scale(1.5);
+          }
+        }
+      `}</style>
 
       {/* Main Content */}
       <main className="pt-20 md:pt-24 px-4 md:px-6">
@@ -124,11 +172,16 @@ export default function AppPage() {
             ) : (
               <div className="space-y-6">
                 {stories.map((story) => (
-                  <StoryCard
-                    key={story.id}
-                    story={story}
-                    onInspire={() => handleInspire(story.id)}
-                  />
+                  <div 
+                    key={story.id} 
+                    data-story-id={story.id}
+                    className={inspiringStoryId === story.id ? 'animate-pulse' : ''}
+                  >
+                    <StoryCard
+                      story={story}
+                      onInspire={() => handleInspire(story.id)}
+                    />
+                  </div>
                 ))}
               </div>
             )}

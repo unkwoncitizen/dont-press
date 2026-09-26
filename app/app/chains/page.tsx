@@ -76,46 +76,96 @@ export default function ChainsPage() {
           ) : (
             <div className="space-y-6">
               {chains.map((chainNode) => (
-                <div key={chainNode.id} className="card">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-coral-red to-warm-orange flex items-center justify-center text-white text-xl">
-                        🔥
-                      </div>
-                      <div>
-                        <div className="font-bold text-warm-white">
-                          Chain #{chainNode.chain_id.slice(0, 8)}
+                <div key={chainNode.id} className="card relative overflow-hidden">
+                  {/* Background flame effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-coral-red/5 via-warm-orange/5 to-transparent pointer-events-none"></div>
+                  
+                  <div className="relative">
+                    {/* Chain Header */}
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        {/* Animated Fire Icon */}
+                        <div className="relative">
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-coral-red to-warm-orange flex items-center justify-center text-white text-3xl shadow-lg animate-pulse">
+                            🔥
+                          </div>
+                          <div className="absolute -inset-2 bg-gradient-to-br from-coral-red/20 to-warm-orange/20 rounded-full animate-ping"></div>
                         </div>
-                        <div className="text-sm text-warm-white/60">
-                          Position #{chainNode.position}
+                        
+                        <div>
+                          <div className="font-display font-bold text-warm-white text-xl mb-1">
+                            Chain #{chainNode.chain_id.slice(0, 8)}
+                          </div>
+                          <div className="text-sm text-warm-white/60 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 bg-warm-orange/20 text-warm-orange px-2 py-1 rounded-full text-xs font-semibold">
+                              <span>📍</span>
+                              Position #{chainNode.position}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Chain Length */}
+                      <div className="text-right">
+                        <div className="text-3xl font-bold bg-gradient-to-br from-coral-red to-warm-orange bg-clip-text text-transparent">
+                          {chainNode.chains?.length || 1}
+                        </div>
+                        <div className="text-xs text-warm-white/50 font-semibold">
+                          people in chain
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-coral-red">
-                        {chainNode.chains?.length || 1}
+
+                    {/* Visual Chain Link */}
+                    <div className="mb-6 flex items-center gap-2">
+                      {[...Array(Math.min(chainNode.position, 5))].map((_, i) => (
+                        <div key={i} className="flex items-center">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-kindness-green to-coral-red flex items-center justify-center text-white text-xs font-bold shadow-md">
+                            {i + 1}
+                          </div>
+                          {i < Math.min(chainNode.position, 5) - 1 && (
+                            <div className="w-4 h-1 bg-gradient-to-r from-kindness-green to-coral-red"></div>
+                          )}
+                        </div>
+                      ))}
+                      {chainNode.position > 5 && (
+                        <>
+                          <div className="text-warm-white/40 text-xs font-bold">...</div>
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-soft-yellow to-coral-red flex items-center justify-center text-white text-xs font-bold shadow-md border-2 border-warm-white/20">
+                            {chainNode.position}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Story Preview */}
+                    {chainNode.stories && (
+                      <div className="bg-gradient-to-br from-warm-white/10 to-warm-white/5 rounded-2xl p-4 border border-warm-white/10 backdrop-blur-sm">
+                        <div className="text-xs text-warm-white/50 mb-2 font-semibold">YOUR CONTRIBUTION</div>
+                        <p className="text-sm text-warm-white/90 leading-relaxed">
+                          {chainNode.stories.content.slice(0, 150)}
+                          {chainNode.stories.content.length > 150 ? '...' : ''}
+                        </p>
                       </div>
-                      <div className="text-xs text-warm-white/50">
-                        people in chain
+                    )}
+
+                    {/* Chain Stats */}
+                    <div className="mt-6 flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-1 text-warm-white/50">
+                        <span>🌟</span>
+                        <span>Keep it going!</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-warm-white/40 ml-auto">
+                        <span>📅</span>
+                        <span>
+                          {new Date(chainNode.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
                       </div>
                     </div>
-                  </div>
-
-                  {chainNode.stories && (
-                    <div className="bg-warm-white/5 rounded-xl p-4 border border-warm-white/10">
-                      <p className="text-sm text-warm-white/80">
-                        {chainNode.stories.content.slice(0, 150)}
-                        {chainNode.stories.content.length > 150 ? '...' : ''}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mt-4 text-xs text-warm-white/40">
-                    {new Date(chainNode.created_at).toLocaleDateString('en-US', {
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
                   </div>
                 </div>
               ))}
