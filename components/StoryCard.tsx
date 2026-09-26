@@ -1,8 +1,8 @@
 'use client'
 
-import { Heart, MessageCircle, Share2, Send } from 'lucide-react'
-import { useState } from 'react'
-import { Story } from '@/lib/supabase'
+import { Heart, MessageCircle, Share2, Send, Check, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Story, supabase } from '@/lib/supabase'
 import Image from 'next/image'
 import { useLanguage } from '@/lib/LanguageContext'
 
@@ -27,21 +27,32 @@ const getGradient = (name: string) => {
 
 export default function StoryCard({ story, onInspire, onComment }: StoryCardProps) {
   const [showComments, setShowComments] = useState(false)
+  const [comments, setComments] = useState<any[]>(story.comments || [])
   const [commentText, setCommentText] = useState('')
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false)
+  const [commentError, setCommentError] = useState<string | null>(null)
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null)
+  const [passOnFeedback, setPassOnFeedback] = useState<string | null>(null)
+  const [inspiredCount, setInspiredCount] = useState(
+    story.reactions?.filter((r) => r.type === 'inspired').length || 0
+  )
+  const [hasInspired, setHasInspired] = useState(false)
   const { t, language } = useLanguage()
 
-  const reactionCounts = {
-    inspired: story.reactions?.filter(r => r.type === 'inspired').length || 0,
-    total: story.reactions?.length || 0,
-  }
+  // Synchronize when story prop updates
+  useEffect(() => {
+    if (story.comments) {
+      setComments(story.comments)
+    }
+  }, [story.comments])
 
   const categoryEmojis: { [key: string]: string } = {
     'good-deed': '❤️',
     'help-someone': '🤝',
-    'community': '🌱',
-    'give': '💚',
-    'creative': '🎨',
-    'fun': '😂',
+    community: '🌱',
+    give: '💚',
+    creative: '🎨',
+    fun: '😂',
     'learn-share': '🧠',
   }
 
@@ -51,21 +62,206 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
     return t(key) || cat.replace('-', ' ')
   }
 
-  const userName = story.is_anonymous ? t('anonymous') : (story.users?.display_name || t('user'))
-  const userInitial = story.is_anonymous ? '?' : (userName[0] || 'U')
+  const userName = story.is_anonymous ? t('anonymous') : story.users?.display_name || t('user')
+  const userInitial = story.is_anonymous ? '?' : userName[0] || 'U'
   const gradient = getGradient(userName)
 
+  const handlePostComment = async () => {
+    const trimmed = commentText.trim()
+    if (!trimmed || isSubmittingComment) return
+
+    setIsSubmittingComment(true)
+    setCommentError(null)
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session || !session.user) {
+        setCommentError(t('sign_in_to_comment'))
+        setIsSubmittingComment(false)
+        return
+      }
+
+      const currentUser = session.user
+
+      // Insert comment into Supabase
+      const { data: newCommentData, error } = await supabase
+        .from('comments')
+        .insert({
+          story_id: story.id,
+          user_id: currentUser.id,
+          content: trimmed,
+        })
+        .select(`
+          id,
+          content,
+          user_id,
+          created_at,
+          users:user_id (id, display_name)
+        `)
+        .single()
+
+      if (error) {
+        console.error('Insert with select error:', error)
+        // Attempt insert without join if foreign key relation was strict
+        const { error: simpleErr } = await supabase.from('comments').insert({
+          story_id: story.id,
+          user_id: currentUser.id,
+          content: trimmed,
+        })
+        if (simpleErr) throw simpleErr
+      }
+
+      // Optimistically add comment to UI
+      const newCommentObj = newCommentData || {
+        id: `local-${Date.now()}`,
+        content: trimmed,
+        user_id: currentUser.id,
+        created_at: new Date().toISOString(),
+        users: {
+          display_name:
+            currentUser.user_metadata?.display_name ||
+            currentUser.email?.split('@')[0] ||
+            t('user'),
+        },
+      }
+
+      setComments((prev) => [...prev, newCommentObj])
+      setCommentText('')
+      setShowComments(true)
+      if (onComment) onComment()
+    } catch (err: any) {
+      console.error('Error posting comment:', err)
+      setCommentError(err.message || 'Failed to post comment')
+    } finally {
+      setIsSubmittingComment(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handlePostComment()
+    }
+  }
+
+  const handleShare = async () => {
+    const shareUrl =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/app/discover?story=${story.id}`
+        : ''
+    const shareTitle = story.title || t('brand_name')
+    const shareText = `${story.content.slice(0, 100)}...`
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        })
+        return
+      } catch (err: any) {
+        if (err.name === 'AbortError') return
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        setShareFeedback(t('link_copied'))
+        setTimeout(() => setShareFeedback(null), 2500)
+      } catch (err) {
+        console.error('Clipboard copy failed:', err)
+      }
+    }
+  }
+
+  const handlePassItOn = async () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const chainUrl = story.chain_id
+      ? `${origin}/app/press?chain=${story.chain_id}`
+      : `${origin}/app/press`
+
+    const inviteMsg =
+      language === 'ar'
+        ? `🔥 قام شخص ما بعمل خير رائع على تطبيق "لا تضغط"! أمرر التحدي إليك الآن. اضغط على الزر وواصل السلسلة:\n${chainUrl}`
+        : `🔥 Someone just completed an inspiring good deed on DON'T PRESS! I'm passing the challenge to you. Press the button and keep the chain going:\n${chainUrl}`
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: language === 'ar' ? 'مرر التحدي - لا تضغط' : "Pass It On - DON'T PRESS",
+          text: inviteMsg,
+          url: chainUrl,
+        })
+        return
+      } catch (err: any) {
+        if (err.name === 'AbortError') return
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(inviteMsg)
+        setPassOnFeedback(t('pass_on_copied'))
+        setTimeout(() => setPassOnFeedback(null), 3500)
+      } catch (err) {
+        console.error('Clipboard copy failed:', err)
+      }
+    }
+  }
+
+  const handleInspireClick = async () => {
+    if (hasInspired) return
+
+    if (onInspire) {
+      onInspire()
+      setHasInspired(true)
+      setInspiredCount((prev) => prev + 1)
+      return
+    }
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) return
+
+      setHasInspired(true)
+      setInspiredCount((prev) => prev + 1)
+
+      await supabase.from('reactions').insert({
+        story_id: story.id,
+        user_id: session.user.id,
+        type: 'inspired',
+      })
+    } catch (err) {
+      console.error('Error inspiring:', err)
+    }
+  }
+
   return (
-    <div className="card hover:shadow-xl transition-all">
+    <div className="card hover:shadow-xl transition-all relative">
+      {/* Toast Feedback Notifications */}
+      {(shareFeedback || passOnFeedback) && (
+        <div className="absolute top-4 end-4 z-20 bg-warm-orange text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 animate-fade-in">
+          <Check size={14} />
+          <span>{shareFeedback || passOnFeedback}</span>
+        </div>
+      )}
+
       {/* User Info */}
       <div className="flex items-center gap-3 mb-4">
-        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-lg`}>
+        <div
+          className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-lg`}
+        >
           {userInitial}
         </div>
         <div className="flex-1">
-          <div className="font-semibold">
-            {userName}
-          </div>
+          <div className="font-semibold">{userName}</div>
           <div className="text-sm text-warm-white/50 flex items-center gap-2">
             <span>{categoryEmojis[story.challenges?.category || ''] || '❤️'}</span>
             <span className="capitalize">{getCategoryName(story.challenges?.category)}</span>
@@ -80,12 +276,8 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
 
       {/* Story Content */}
       <div className="mb-4">
-        {story.title && (
-          <h3 className="text-xl font-semibold mb-2">{story.title}</h3>
-        )}
-        <p className="text-warm-white/90 leading-relaxed whitespace-pre-wrap">
-          {story.content}
-        </p>
+        {story.title && <h3 className="text-xl font-semibold mb-2">{story.title}</h3>}
+        <p className="text-warm-white/90 leading-relaxed whitespace-pre-wrap">{story.content}</p>
       </div>
 
       {/* Photo */}
@@ -113,33 +305,48 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-4 pt-4 border-t border-warm-white/10">
+      <div className="flex items-center gap-3 pt-4 border-t border-warm-white/10">
         <button
-          onClick={onInspire}
-          className="flex items-center gap-2 text-warm-white/70 hover:text-kindness-green transition group"
+          onClick={handleInspireClick}
+          className={`flex items-center gap-2 transition group ${
+            hasInspired
+              ? 'text-kindness-green'
+              : 'text-warm-white/70 hover:text-kindness-green'
+          }`}
+          title={t('inspire')}
         >
-          <Heart size={20} className="group-hover:fill-kindness-green" />
+          <Heart
+            size={20}
+            className={hasInspired ? 'fill-kindness-green text-kindness-green' : 'group-hover:fill-kindness-green'}
+          />
           <span className="text-sm font-semibold">
-            {reactionCounts.inspired > 0 ? reactionCounts.inspired : t('inspire')}
+            {inspiredCount > 0 ? inspiredCount : t('inspire')}
           </span>
         </button>
 
         <button
           onClick={() => setShowComments(!showComments)}
           className="flex items-center gap-2 text-warm-white/70 hover:text-warm-white transition"
+          title="Comments"
         >
           <MessageCircle size={20} />
-          <span className="text-sm font-semibold">
-            {story.comments?.length || 0}
-          </span>
+          <span className="text-sm font-semibold">{comments.length}</span>
         </button>
 
-        <button className="flex items-center gap-2 text-warm-white/70 hover:text-warm-white transition ms-auto">
+        <button
+          onClick={handleShare}
+          className="flex items-center gap-2 text-warm-white/70 hover:text-warm-orange transition ms-auto"
+          title="Share"
+        >
           <Share2 size={20} />
         </button>
 
-        <button className="flex items-center gap-2 text-warm-white/70 hover:text-coral-red transition">
-          <Send size={20} />
+        <button
+          onClick={handlePassItOn}
+          className="flex items-center gap-2 text-warm-white/70 hover:text-coral-red transition px-2.5 py-1 rounded-full hover:bg-coral-red/10"
+          title={t('pass_it_on')}
+        >
+          <Send size={18} />
           <span className="text-sm font-semibold">{t('pass_it_on')}</span>
         </button>
       </div>
@@ -148,21 +355,23 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
       {showComments && (
         <div className="mt-4 pt-4 border-t border-warm-white/10">
           {/* Existing Comments */}
-          {story.comments && story.comments.length > 0 && (
-            <div className="space-y-3 mb-4">
-              {story.comments.map((comment) => {
+          {comments && comments.length > 0 && (
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto pr-1">
+              {comments.map((comment) => {
                 const commentUserName = comment.users?.display_name || t('user')
                 const commentGradient = getGradient(commentUserName)
                 return (
-                  <div key={comment.id} className="flex gap-3">
-                    <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${commentGradient} flex items-center justify-center text-white text-sm font-bold`}>
+                  <div key={comment.id} className="flex gap-3 items-start">
+                    <div
+                      className={`w-7 h-7 rounded-full bg-gradient-to-br ${commentGradient} flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5`}
+                    >
                       {commentUserName[0] || 'U'}
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold">
+                    <div className="flex-1 bg-warm-white/5 rounded-xl px-3 py-2 border border-warm-white/5">
+                      <div className="text-xs font-semibold text-warm-white/90">
                         {commentUserName}
                       </div>
-                      <div className="text-sm text-warm-white/80">
+                      <div className="text-sm text-warm-white/80 whitespace-pre-wrap">
                         {comment.content}
                       </div>
                     </div>
@@ -172,22 +381,38 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
             </div>
           )}
 
-          {/* Add Comment */}
-          <div className="flex gap-2">
+          {/* Add Comment Input */}
+          <div className="flex gap-2 items-center">
             <input
               type="text"
               placeholder={t('add_comment_placeholder')}
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              className="flex-1 bg-warm-white/5 border border-warm-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-coral-red/50"
+              onKeyDown={handleKeyDown}
+              disabled={isSubmittingComment}
+              className="flex-1 bg-warm-white/5 border border-warm-white/10 rounded-xl px-4 py-2 text-sm text-warm-white placeholder-warm-white/40 focus:outline-none focus:border-coral-red/50 transition"
             />
             <button
-              onClick={onComment}
-              className="bg-coral-red text-white px-4 py-2 rounded-xl hover:bg-coral-red/90 transition text-sm font-semibold"
+              onClick={handlePostComment}
+              disabled={isSubmittingComment || !commentText.trim()}
+              className="bg-coral-red hover:bg-coral-red/90 disabled:opacity-50 text-white px-4 py-2 rounded-xl transition text-sm font-semibold flex items-center gap-1.5"
             >
-              {t('post_comment')}
+              {isSubmittingComment ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>{t('posting_comment')}</span>
+                </>
+              ) : (
+                <span>{t('post_comment')}</span>
+              )}
             </button>
           </div>
+
+          {commentError && (
+            <div className="text-xs text-coral-red mt-2 font-medium">
+              {commentError}
+            </div>
+          )}
         </div>
       )}
 

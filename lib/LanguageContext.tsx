@@ -84,12 +84,16 @@ export const translations: Translations = {
   no_stories_feed: { en: "The world is waiting for its first good deed.", ar: "العالم بانتظار أول قصة عمل خير هنا." },
   inspire: { en: "Inspire", ar: "ألهمني" },
   pass_it_on: { en: "Pass it on", ar: "مررها للغير" },
-  add_comment_placeholder: { en: "Add a comment...", ar: "أضف تعليقاً..." },
+  add_comment_placeholder: { en: "Add a comment (press Enter)...", ar: "أضف تعليقاً (اضغط Enter)..." },
   post_comment: { en: "Post", ar: "نشر" },
+  posting_comment: { en: "...", ar: "..." },
   anonymous: { en: "Anonymous", ar: "مجهول" },
   user: { en: "User", ar: "مستخدم" },
   challenge_label: { en: "Challenge", ar: "التحدي" },
   chain_label: { en: "Chain", ar: "سلسلة" },
+  link_copied: { en: "Link copied! 📋", ar: "تم نسخ الرابط! 📋" },
+  pass_on_copied: { en: "Chain link copied! Share it 🔥", ar: "تم نسخ رابط التحدي! شاركه 🔥" },
+  sign_in_to_comment: { en: "Please sign in to comment", ar: "يرجى تسجيل الدخول للتعليق" },
 
   // Press flow
   you_pressed_it: { en: "You pressed it.", ar: "لقد ضغطت على الزر." },

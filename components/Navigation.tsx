@@ -73,7 +73,24 @@ export default function Navigation() {
         </div>
       </nav>
 
-      {/* Mobile Navigation */}
+      {/* Mobile Top Bar */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-primary-dark/90 backdrop-blur-xl border-b border-warm-white/10 px-4 py-3 flex items-center justify-between">
+        <Link href="/app" className="text-lg font-display font-bold text-coral-red">
+          {t('brand_name')}
+        </Link>
+        <div className="flex items-center gap-2">
+          <LanguageToggle />
+          <button
+            onClick={handleSignOut}
+            className="text-warm-white/70 hover:text-warm-white transition p-1.5 rounded-lg hover:bg-warm-white/5"
+            title={t('nav_signout')}
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-primary-dark/95 backdrop-blur-xl border-t border-warm-white/10">
         <div className="flex items-center justify-around px-4 py-3">
           <Link href="/app" className="flex flex-col items-center gap-1 text-warm-white/70 hover:text-warm-white transition">
