@@ -310,9 +310,19 @@ $$;
 -- 5. Grants
 -- ============================================================================
 
+-- CREATE FUNCTION grants EXECUTE to PUBLIC by default, and Supabase's default
+-- privileges additionally grant table writes to anon. Both have to be undone
+-- explicitly, otherwise:
+--   * anon can invoke the RPCs (they still fail the auth.uid() check inside,
+--     but the limit should live in Postgres, not in a second layer)
+--   * anon holds INSERT on chain_contributions (blocked only by RLS, since the
+--     sole policy there is SELECT)
+REVOKE EXECUTE ON FUNCTION public.contribute_to_chain(uuid, integer, text, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.create_goal_chain(text, text, text, integer, text, text, text, integer, text) FROM PUBLIC;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.chain_contributions FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON public.chain_contributions FROM authenticated;
+
+-- The RPCs become the only path in, and they are where validation lives.
 GRANT EXECUTE ON FUNCTION public.create_goal_chain TO authenticated;
 GRANT EXECUTE ON FUNCTION public.contribute_to_chain TO authenticated;
 
--- Remove any direct write access to contributions. The functions above are the
--- only path in, and they are what enforce validation.
-REVOKE INSERT, UPDATE, DELETE ON public.chain_contributions FROM authenticated;
