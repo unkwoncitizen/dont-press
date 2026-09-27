@@ -73,6 +73,15 @@ export default function Navigation() {
             <Link href="/app/profile" className="text-warm-white/70 hover:text-warm-white transition font-medium">
               {t('nav_profile')}
             </Link>
+            {isAdmin && (
+              <Link
+                href="/app/admin"
+                className="text-warm-orange hover:text-warm-white transition font-medium inline-flex items-center gap-1.5"
+              >
+                <Shield size={15} />
+                {t('admin_panel')}
+              </Link>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
