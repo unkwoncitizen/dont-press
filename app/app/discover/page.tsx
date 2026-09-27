@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
@@ -17,20 +17,7 @@ export default function DiscoverPage() {
   const router = useRouter()
   const { t } = useLanguage()
 
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth')
-        return
-      }
-      setUser(session.user)
-      loadStories()
-    }
-    checkUser()
-  }, [router, activeTab])
-
-  const loadStories = async () => {
+  const loadStories = useCallback(async () => {
     try {
       let query = supabase
         .from('stories')
@@ -59,7 +46,20 @@ export default function DiscoverPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeTab])
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/auth')
+        return
+      }
+      setUser(session.user)
+      loadStories()
+    }
+    checkUser()
+  }, [router, loadStories])
 
   const getCategoryName = (catId: string) => {
     const key = `cat_${catId.replace(/-/g, '_')}`
