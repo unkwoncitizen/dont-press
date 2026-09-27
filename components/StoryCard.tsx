@@ -5,10 +5,11 @@ import { useState, useEffect } from 'react'
 import { Story, supabase } from '@/lib/supabase'
 import Image from 'next/image'
 import { useLanguage } from '@/lib/LanguageContext'
+import Link from 'next/link'
 
 interface StoryCardProps {
   story: Story
-  onInspire?: () => void
+  onInspire?: (isAdding: boolean) => void
   onComment?: () => void
 }
 
@@ -37,9 +38,27 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
     story.reactions?.filter((r) => r.type === 'inspired').length || 0
   )
   const [hasInspired, setHasInspired] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isTogglingInspire, setIsTogglingInspire] = useState(false)
   const { t, language } = useLanguage()
 
-  // Synchronize when story prop updates
+  // Get current user session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id ?? null)
+    })
+  }, [])
+
+  // Synchronize inspired state when story.reactions or currentUserId changes
+  useEffect(() => {
+    const reactions = story.reactions || []
+    setInspiredCount(reactions.filter((r) => r.type === 'inspired').length)
+    if (currentUserId) {
+      setHasInspired(reactions.some((r) => r.type === 'inspired' && r.user_id === currentUserId))
+    }
+  }, [story.reactions, currentUserId])
+
+  // Synchronize comments when story prop updates
   useEffect(() => {
     if (story.comments) {
       setComments(story.comments)
@@ -215,31 +234,39 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
   }
 
   const handleInspireClick = async () => {
-    if (hasInspired) return
+    if (isTogglingInspire || !currentUserId) return
 
-    if (onInspire) {
-      onInspire()
-      setHasInspired(true)
-      setInspiredCount((prev) => prev + 1)
-      return
-    }
+    const adding = !hasInspired
+    setIsTogglingInspire(true)
+    setHasInspired(adding)
+    setInspiredCount((prev) => Math.max(0, prev + (adding ? 1 : -1)))
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) return
-
-      setHasInspired(true)
-      setInspiredCount((prev) => prev + 1)
-
-      await supabase.from('reactions').insert({
-        story_id: story.id,
-        user_id: session.user.id,
-        type: 'inspired',
-      })
+      if (adding) {
+        const { error } = await supabase.from('reactions').insert({
+          story_id: story.id,
+          user_id: currentUserId,
+          type: 'inspired',
+        })
+        if (error && error.code !== '23505') throw error // ignore duplicate
+        onInspire?.(true) // trigger animation in parent
+      } else {
+        const { error } = await supabase
+          .from('reactions')
+          .delete()
+          .eq('story_id', story.id)
+          .eq('user_id', currentUserId)
+          .eq('type', 'inspired')
+        if (error) throw error
+        onInspire?.(false)
+      }
     } catch (err) {
-      console.error('Error inspiring:', err)
+      console.error('Error toggling inspire:', err)
+      // rollback on error
+      setHasInspired(!adding)
+      setInspiredCount((prev) => Math.max(0, prev + (adding ? -1 : 1)))
+    } finally {
+      setIsTogglingInspire(false)
     }
   }
 
@@ -255,18 +282,42 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
 
       {/* User Info */}
       <div className="flex items-center gap-3 mb-4">
-        <div
-          className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-lg`}
-        >
-          {userInitial}
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold">{userName}</div>
-          <div className="text-sm text-warm-white/50 flex items-center gap-2">
-            <span>{categoryEmojis[story.challenges?.category || ''] || '❤️'}</span>
-            <span className="capitalize">{getCategoryName(story.challenges?.category)}</span>
-          </div>
-        </div>
+        {!story.is_anonymous && story.users?.id ? (
+          <Link
+            href={`/app/profile/${story.users.id}`}
+            className="flex items-center gap-3 group"
+          >
+            <div
+              className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-lg transition-transform group-hover:scale-105`}
+            >
+              {userInitial}
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold group-hover:text-coral-red transition-colors">
+                {userName}
+              </div>
+              <div className="text-sm text-warm-white/50 flex items-center gap-2">
+                <span>{categoryEmojis[story.challenges?.category || ''] || '❤️'}</span>
+                <span className="capitalize">{getCategoryName(story.challenges?.category)}</span>
+              </div>
+            </div>
+          </Link>
+        ) : (
+          <>
+            <div
+              className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-lg`}
+            >
+              {userInitial}
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold">{userName}</div>
+              <div className="text-sm text-warm-white/50 flex items-center gap-2">
+                <span>{categoryEmojis[story.challenges?.category || ''] || '❤️'}</span>
+                <span className="capitalize">{getCategoryName(story.challenges?.category)}</span>
+              </div>
+            </div>
+          </>
+        )}
         {story.chain_id && (
           <div className="text-xs bg-coral-red/20 text-coral-red px-3 py-1 rounded-full font-medium">
             🔥 {t('chain_label')} #{story.chain_id.slice(0, 6)}
@@ -308,8 +359,11 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
       <div className="flex items-center gap-3 pt-4 border-t border-warm-white/10">
         <button
           onClick={handleInspireClick}
+          disabled={isTogglingInspire}
           className={`flex items-center gap-2 transition group ${
-            hasInspired
+            isTogglingInspire
+              ? 'opacity-50 cursor-wait'
+              : hasInspired
               ? 'text-kindness-green'
               : 'text-warm-white/70 hover:text-kindness-green'
           }`}

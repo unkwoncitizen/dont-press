@@ -52,56 +52,43 @@ export default function AppPage() {
     }
   }
 
-  const handleInspire = async (storyId: string) => {
+  const handleInspire = async (storyId: string, isAdding: boolean) => {
     if (!user) return
 
-    // Show animation
-    setInspiringStoryId(storyId)
+    // Show animation only when adding (inspiring)
+    if (isAdding) {
+      setInspiringStoryId(storyId)
 
-    // Create floating hearts animation
-    const storyCard = document.querySelector(`[data-story-id="${storyId}"]`)
-    if (storyCard) {
-      for (let i = 0; i < 5; i++) {
-        setTimeout(() => {
-          const heart = document.createElement('div')
-          heart.innerHTML = '❤️'
-          heart.style.position = 'fixed'
-          heart.style.fontSize = '24px'
-          heart.style.zIndex = '9999'
-          heart.style.pointerEvents = 'none'
-          heart.style.animation = 'float-up 2s ease-out forwards'
+      // Create floating hearts animation
+      const storyCard = document.querySelector(`[data-story-id="${storyId}"]`)
+      if (storyCard) {
+        for (let i = 0; i < 5; i++) {
+          setTimeout(() => {
+            const heart = document.createElement('div')
+            heart.innerHTML = '❤️'
+            heart.style.position = 'fixed'
+            heart.style.fontSize = '24px'
+            heart.style.zIndex = '9999'
+            heart.style.pointerEvents = 'none'
+            heart.style.animation = 'float-up 2s ease-out forwards'
 
-          const rect = storyCard.getBoundingClientRect()
-          heart.style.left = `${rect.left + Math.random() * rect.width}px`
-          heart.style.top = `${rect.top + rect.height / 2}px`
+            const rect = storyCard.getBoundingClientRect()
+            heart.style.left = `${rect.left + Math.random() * rect.width}px`
+            heart.style.top = `${rect.top + rect.height / 2}px`
 
-          document.body.appendChild(heart)
+            document.body.appendChild(heart)
 
-          setTimeout(() => heart.remove(), 2000)
-        }, i * 100)
+            setTimeout(() => heart.remove(), 2000)
+          }, i * 100)
+        }
       }
     }
 
-    try {
-      const { error } = await supabase
-        .from('reactions')
-        .insert({
-          story_id: storyId,
-          user_id: user.id,
-          type: 'inspired'
-        })
-
-      if (error) throw error
-
-      // Wait for animation to finish
-      setTimeout(() => {
-        setInspiringStoryId(null)
-        loadStories()
-      }, 1000)
-    } catch (error) {
-      console.error('Error adding reaction:', error)
+    // Reload stories to sync counts after DB change (StoryCard handles the DB)
+    setTimeout(() => {
       setInspiringStoryId(null)
-    }
+      loadStories()
+    }, isAdding ? 1000 : 500)
   }
 
   if (loading) {
@@ -181,7 +168,7 @@ export default function AppPage() {
                   >
                     <StoryCard
                       story={story}
-                      onInspire={() => handleInspire(story.id)}
+                      onInspire={(isAdding) => handleInspire(story.id, isAdding)}
                     />
                   </div>
                 ))}

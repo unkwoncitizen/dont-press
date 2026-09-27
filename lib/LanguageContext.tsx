@@ -141,6 +141,14 @@ export const translations: Translations = {
   your_stories: { en: "Your Stories", ar: "قصصك ومشاركاتك" },
   no_stories_profile: { en: "You haven't shared any stories yet.", ar: "لم تقم بمشاركة أي قصة بعد." },
 
+  // Other user profile page
+  their_stories: { en: "Their Stories", ar: "قصصهم" },
+  no_stories_other: { en: "They haven't shared any stories yet.", ar: "لم يشاركوا أي قصة بعد." },
+  profile_not_found: { en: "Profile not found.", ar: "لم يتم العثور على الحساب." },
+  my_profile: { en: "My Profile", ar: "حسابي" },
+  back_to_feed: { en: "Back to Feed", ar: "العودة للقائمة" },
+  edit_profile: { en: "Edit Profile", ar: "تعديل الحساب" },
+
   // Chains page
   your_chains: { en: "Your Chains", ar: "سلاسلك" },
   chains_subtitle: { en: "Every good deed can start a chain reaction", ar: "كل عمل خير يمكن أن يطلق سلسلة تفاعلية من الإحسان" },
