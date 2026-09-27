@@ -84,7 +84,45 @@ export interface Chain {
   started_by_user_id: string
   started_at: string
   length: number
+  active: boolean
+  // Goal-chain fields (see supabase-chains.sql)
+  kind: 'goal' | 'story'
+  title?: string
+  description?: string
+  category?: string
+  goal_amount?: number
+  unit?: string
+  current_amount: number
+  visibility: 'public' | 'private'
+  status: 'active' | 'completed'
+  image_url?: string
+  completed_at?: string
+  users?: User
+  chain_contributions?: ChainContribution[]
 }
+
+export interface ChainContribution {
+  id: string
+  chain_id: string
+  user_id: string
+  amount: number
+  message?: string
+  image_url?: string
+  created_at: string
+  users?: User
+}
+
+// Returned by the create_goal_chain / contribute_to_chain RPC functions.
+export interface ChainMutationResult {
+  chain_id: string
+  current_amount: number
+  goal_amount: number
+  amount_added?: number
+  remaining?: number
+  status: 'active' | 'completed'
+  just_completed?: boolean
+}
+
 
 export interface ChainNode {
   id: string

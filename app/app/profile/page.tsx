@@ -5,13 +5,16 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
-import { Story } from '@/lib/supabase'
+import ChainCard from '@/components/ChainCard'
+import { Story, Chain } from '@/lib/supabase'
 import { useLanguage } from '@/lib/LanguageContext'
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [stories, setStories] = useState<Story[]>([])
+  const [createdChains, setCreatedChains] = useState<Chain[]>([])
+  const [joinedChains, setJoinedChains] = useState<Chain[]>([])
   const [stats, setStats] = useState({
     totalChallenges: 0,
     completedChallenges: 0,
@@ -32,6 +35,7 @@ export default function ProfilePage() {
       loadProfile(session.user.id)
       loadStories(session.user.id)
       loadStats(session.user.id)
+      loadChains(session.user.id)
     }
     checkUser()
   }, [router])
@@ -108,6 +112,42 @@ export default function ProfilePage() {
     })
   }
 
+  const loadChains = async (userId: string) => {
+    try {
+      const select = `
+        *,
+        users:started_by_user_id (id, display_name, avatar_url)
+      `
+
+      const [createdRes, contributionsRes] = await Promise.all([
+        supabase.from('chains').select(select).eq('kind', 'goal').eq('started_by_user_id', userId),
+        supabase
+          .from('chain_contributions')
+          .select(`
+            chain_id,
+            chains (*, users:started_by_user_id (id, display_name, avatar_url))
+          `)
+          .eq('user_id', userId),
+      ])
+
+      if (createdRes.data) setCreatedChains(createdRes.data as unknown as Chain[])
+
+      if (contributionsRes.data) {
+        const seen = new Set<string>()
+        const list: Chain[] = []
+        for (const row of contributionsRes.data as any[]) {
+          const c = row.chains as Chain | null
+          if (!c || seen.has(c.id) || c.started_by_user_id === userId) continue
+          seen.add(c.id)
+          list.push(c)
+        }
+        setJoinedChains(list)
+      }
+    } catch (error) {
+      console.error('Error loading chains:', error)
+    }
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-primary-dark flex items-center justify-center">
@@ -173,6 +213,39 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Chains */}
+          {(createdChains.length > 0 || joinedChains.length > 0) && (
+            <div className="mb-12 space-y-10">
+              {createdChains.length > 0 && (
+                <section>
+                  <h2 className="text-2xl font-display font-bold text-warm-white mb-6 flex items-center gap-3">
+                    <span>🎯</span>
+                    {t('chains_i_created')}
+                  </h2>
+                  <div className="space-y-6">
+                    {createdChains.map((chain) => (
+                      <ChainCard key={chain.id} chain={chain} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {joinedChains.length > 0 && (
+                <section>
+                  <h2 className="text-2xl font-display font-bold text-warm-white mb-6 flex items-center gap-3">
+                    <span>🤝</span>
+                    {t('chains_i_joined')}
+                  </h2>
+                  <div className="space-y-6">
+                    {joinedChains.map((chain) => (
+                      <ChainCard key={chain.id} chain={chain} showContinue={chain.status === 'active'} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
 
           {/* Recent Stories */}
           <div>
