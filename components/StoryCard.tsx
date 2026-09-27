@@ -1,6 +1,6 @@
 'use client'
 
-import { Heart, MessageCircle, Share2, Send, Check, Loader2 } from 'lucide-react'
+import { Heart, MessageCircle, Share2, Send, Check, Loader2, Trash2, MoreHorizontal, Shield } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Story, supabase } from '@/lib/supabase'
 import Image from 'next/image'
@@ -12,6 +12,10 @@ interface StoryCardProps {
   story: Story
   onInspire?: (isAdding: boolean) => void
   onComment?: () => void
+  /** Removes the card from the list once the story is deleted. */
+  onDeleted?: (storyId: string) => void
+  /** When true the viewer can moderate other people's posts too. */
+  canModerate?: boolean
 }
 
 const getGradient = (name: string) => {
@@ -27,7 +31,7 @@ const getGradient = (name: string) => {
   return gradients[index]
 }
 
-export default function StoryCard({ story, onInspire, onComment }: StoryCardProps) {
+export default function StoryCard({ story, onInspire, onComment, onDeleted, canModerate = false }: StoryCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<any[]>(story.comments || [])
   const [commentText, setCommentText] = useState('')
@@ -41,6 +45,9 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
   const [hasInspired, setHasInspired] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isTogglingInspire, setIsTogglingInspire] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const { t, language } = useLanguage()
 
   // Get current user session
@@ -86,6 +93,35 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
   const userInitial = story.is_anonymous ? '?' : userName[0] || 'U'
   const gradient = getGradient(userName)
   const localizedChallenge = localizeChallenge(story.challenges, language)
+
+  // Soft delete: deleted_at hides the post everywhere without destroying the
+  // comments and reactions that cascade on a hard delete. RLS decides whether
+  // this actually succeeds, so the button is only a request.
+  const handleDelete = async () => {
+    if (isDeleting) return
+    setIsDeleting(true)
+
+    try {
+      const { error } = await supabase
+        .from('stories')
+        .update({ deleted_at: new Date().toISOString(), deleted_by: currentUserId })
+        .eq('id', story.id)
+        .is('deleted_at', null)
+
+      if (error) throw error
+
+      setConfirmDelete(false)
+      setShowMenu(false)
+      onDeleted?.(story.id)
+    } catch (err) {
+      console.error('Error deleting story:', err)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const isOwnStory = currentUserId !== null && story.user_id === currentUserId
+  const canDelete = isOwnStory || canModerate
 
   const handlePostComment = async () => {
     const trimmed = commentText.trim()
@@ -323,6 +359,66 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
         {story.chain_id && (
           <div className="text-xs bg-coral-red/20 text-coral-red px-3 py-1 rounded-full font-medium">
             🔥 {t('chain_label')} #{story.chain_id.slice(0, 6)}
+          </div>
+        )}
+
+        {/* Owner / moderator controls */}
+        {canDelete && (
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              aria-label={t('post_options')}
+              className="p-2 rounded-lg text-warm-white/50 hover:text-warm-white hover:bg-warm-white/5 transition"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+
+            {showMenu && (
+              <>
+                {/* Click-away layer */}
+                <div className="fixed inset-0 z-30" onClick={() => setShowMenu(false)} />
+
+                <div className="absolute top-10 end-0 z-40 w-56 bg-primary-dark border border-warm-white/15 rounded-2xl p-1.5 shadow-2xl">
+                  {!isOwnStory && canModerate && (
+                    <div className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-warm-orange font-semibold border-b border-warm-white/10 mb-1">
+                      <Shield size={11} />
+                      {t('moderating')}
+                    </div>
+                  )}
+
+                  {confirmDelete ? (
+                    <div className="p-2">
+                      <p className="text-xs text-warm-white/70 mb-3">
+                        {isOwnStory ? t('confirm_delete_own') : t('confirm_delete_other')}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleDelete}
+                          disabled={isDeleting}
+                          className="flex-1 bg-coral-red text-white text-xs font-semibold py-2 rounded-xl hover:bg-coral-red/90 transition disabled:opacity-50"
+                        >
+                          {isDeleting ? t('deleting') : t('confirm_delete_yes')}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          className="flex-1 bg-warm-white/10 text-warm-white text-xs font-semibold py-2 rounded-xl hover:bg-warm-white/20 transition"
+                        >
+                          {t('cancel')}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-coral-red hover:bg-coral-red/10 rounded-xl transition text-start"
+                    >
+                      <Trash2 size={15} />
+                      {isOwnStory ? t('delete_post') : t('moderate_remove_post')}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
 import ChainCard from '@/components/ChainCard'
 import LevelMeter from '@/components/LevelMeter'
+import { useIsAdmin } from '@/lib/useIsAdmin'
 import { Story, User, Chain } from '@/lib/supabase'
 import { useLanguage } from '@/lib/LanguageContext'
 import Link from 'next/link'
@@ -27,6 +28,7 @@ export default function OtherProfilePage() {
     peopleInspired: 0,
   })
   const [loading, setLoading] = useState(true)
+  const { isAdmin } = useIsAdmin()
   const { t } = useLanguage()
 
   useEffect(() => {
@@ -297,7 +299,12 @@ export default function OtherProfilePage() {
             ) : (
               <div className="space-y-6">
                 {stories.map((story) => (
-                  <StoryCard key={story.id} story={story} />
+                  <StoryCard
+                  key={story.id}
+                  story={story}
+                  canModerate={isAdmin}
+                  onDeleted={(id) => setStories((prev) => prev.filter((s) => s.id !== id))}
+                />
                 ))}
               </div>
             )}

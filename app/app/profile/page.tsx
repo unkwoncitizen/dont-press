@@ -8,6 +8,7 @@ import StoryCard from '@/components/StoryCard'
 import ChainCard from '@/components/ChainCard'
 import LevelMeter from '@/components/LevelMeter'
 import { Story, Chain } from '@/lib/supabase'
+import { useIsAdmin } from '@/lib/useIsAdmin'
 import { useLanguage } from '@/lib/LanguageContext'
 
 export default function ProfilePage() {
@@ -16,6 +17,7 @@ export default function ProfilePage() {
   const [stories, setStories] = useState<Story[]>([])
   const [createdChains, setCreatedChains] = useState<Chain[]>([])
   const [joinedChains, setJoinedChains] = useState<Chain[]>([])
+  const { isAdmin } = useIsAdmin()
   const [stats, setStats] = useState({
     totalChallenges: 0,
     completedChallenges: 0,
@@ -279,7 +281,12 @@ export default function ProfilePage() {
             ) : (
               <div className="space-y-6">
                 {stories.map((story) => (
-                  <StoryCard key={story.id} story={story} />
+                  <StoryCard
+                key={story.id}
+                story={story}
+                canModerate={isAdmin}
+                onDeleted={(id) => setStories((prev) => prev.filter((s) => s.id !== id))}
+              />
                 ))}
               </div>
             )}

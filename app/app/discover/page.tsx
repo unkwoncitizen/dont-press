@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
 import { Story } from '@/lib/supabase'
 import { categories } from '@/lib/challenges-data'
+import { useIsAdmin } from '@/lib/useIsAdmin'
 import { useLanguage } from '@/lib/LanguageContext'
 
 export default function DiscoverPage() {
@@ -15,6 +16,7 @@ export default function DiscoverPage() {
   const [activeTab, setActiveTab] = useState<'inspiring' | 'recent' | 'chains'>('inspiring')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const { isAdmin } = useIsAdmin()
   const router = useRouter()
   const { t } = useLanguage()
 
@@ -200,7 +202,12 @@ export default function DiscoverPage() {
           ) : (
             <div className="space-y-6">
               {stories.map((story) => (
-                <StoryCard key={story.id} story={story} />
+                <StoryCard
+                  key={story.id}
+                  story={story}
+                  canModerate={isAdmin}
+                  onDeleted={(id) => setStories((prev) => prev.filter((s) => s.id !== id))}
+                />
               ))}
             </div>
           )}

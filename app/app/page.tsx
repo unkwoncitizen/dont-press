@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
 import { Story } from '@/lib/supabase'
+import { useIsAdmin } from '@/lib/useIsAdmin'
 import { useLanguage } from '@/lib/LanguageContext'
 
 export default function AppPage() {
@@ -13,6 +14,7 @@ export default function AppPage() {
   const [stories, setStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [inspiringStoryId, setInspiringStoryId] = useState<string | null>(null)
+  const { isAdmin } = useIsAdmin()
   const router = useRouter()
   const { t } = useLanguage()
 
@@ -51,6 +53,12 @@ export default function AppPage() {
       setLoading(false)
     }
   }
+
+  // Drop the card immediately rather than refetching, so deletion feels
+  // instant and the feed does not re-sort under the user.
+  const handleDeleted = useCallback((storyId: string) => {
+    setStories((prev) => prev.filter((s) => s.id !== storyId))
+  }, [])
 
   const handleInspire = async (storyId: string, isAdding: boolean) => {
     if (!user) return
@@ -169,6 +177,8 @@ export default function AppPage() {
                     <StoryCard
                       story={story}
                       onInspire={(isAdding) => handleInspire(story.id, isAdding)}
+                      canModerate={isAdmin}
+                      onDeleted={handleDeleted}
                     />
                   </div>
                 ))}

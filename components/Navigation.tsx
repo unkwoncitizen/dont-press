@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Home, Compass, Zap, Link2, User, LogOut } from 'lucide-react'
+import { Home, Compass, Zap, Link2, User, LogOut, Shield } from 'lucide-react'
+import { useIsAdmin } from '@/lib/useIsAdmin'
 import { useLanguage, LanguageToggle } from '@/lib/LanguageContext'
 
 export default function Navigation() {
   const [user, setUser] = useState<any>(null)
   const [signingOut, setSigningOut] = useState(false)
+  const { isAdmin } = useIsAdmin()
   const router = useRouter()
   const { t } = useLanguage()
 
@@ -137,6 +139,13 @@ export default function Navigation() {
             <Link2 size={22} />
             <span className="text-[11px]">{t('nav_chains')}</span>
           </Link>
+
+          {isAdmin && (
+            <Link href="/app/admin" className="flex flex-col items-center gap-1 text-warm-orange hover:text-warm-white transition">
+              <Shield size={22} />
+              <span className="text-[11px]">{t('admin_panel')}</span>
+            </Link>
+          )}
 
           <Link href="/app/profile" className="flex flex-col items-center gap-1 text-warm-white/70 hover:text-warm-white transition">
             <User size={22} />

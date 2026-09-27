@@ -86,6 +86,31 @@ export const translations: Translations = {
   auth_bad_redirect: { en: "This sign-in link is no longer valid. Please request a new one.", ar: "رابط تسجيل الدخول هذا لم يعد صالحاً. يرجى طلب رابط جديد." },
   auth_generic_error: { en: "Something went wrong. Please try again.", ar: "حدث خطأ ما. يرجى المحاولة مرة أخرى." },
 
+  // Deletion and moderation
+  post_options: { en: "Post options", ar: "خيارات المنشور" },
+  delete_post: { en: "Delete my post", ar: "احذف منشوري" },
+  moderate_remove_post: { en: "Remove post", ar: "إزالة المنشور" },
+  moderating: { en: "MODERATING", ar: "إشراف" },
+  confirm_delete_own: { en: "Delete this post? It will be hidden, and your comments stay with it.", ar: "هل تريد حذف هذا المنشور؟ سيُخفى، وتبقى تعليقاتك معه." },
+  confirm_delete_other: { en: "Remove this post? It will be hidden from the feed.", ar: "هل تريد إزالة هذا المنشور؟ سيُخفى من القائمة." },
+  confirm_delete_yes: { en: "Yes, delete", ar: "نعم، احذف" },
+  deleting: { en: "Deleting...", ar: "جارٍ الحذف..." },
+  restore_post: { en: "Restore", ar: "استعادة" },
+  purge_permanently: { en: "Delete permanently", ar: "حذف نهائي" },
+  confirm_purge: { en: "Delete permanently? This also destroys every comment on it. This cannot be undone.", ar: "حذف نهائي؟ سيؤدي أيضاً إلى إتلاف كل التعليقات. لا يمكن التراجع." },
+  removed_badge: { en: "REMOVED", ar: "محذوف" },
+
+  // Admin panel
+  admin_panel: { en: "Admin", ar: "إدارة" },
+  moderation_title: { en: "Moderation", ar: "الإشراف" },
+  moderation_subtitle: { en: "Review and remove posts across the app.", ar: "راجع المنشورات واحذفها في كل التطبيق." },
+  tab_live_posts: { en: "Live posts", ar: "المنشورات الظاهرة" },
+  tab_removed_posts: { en: "Removed", ar: "المحذوفة" },
+  admin_nothing_to_review: { en: "Nothing to review right now.", ar: "لا يوجد ما يراجعه حالياً." },
+  admin_nothing_removed: { en: "Nothing has been removed.", ar: "لم يُحذف شيء بعد." },
+  admin_only: { en: "Admins only", ar: "للمشرفين فقط" },
+  admin_only_hint: { en: "You do not have permission to open this page.", ar: "ليس لديك إذن لفتح هذه الصفحة." },
+
   // Password reset
   auth_forgot_link: { en: "Forgot your password?", ar: "هل نسيت كلمة المرور؟" },
   auth_forgot_title: { en: "Reset Password", ar: "إعادة تعيين كلمة المرور" },
