@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
 import ChainCard from '@/components/ChainCard'
+import LevelMeter from '@/components/LevelMeter'
 import { Story, User, Chain } from '@/lib/supabase'
 import { useLanguage } from '@/lib/LanguageContext'
 import Link from 'next/link'
@@ -47,8 +48,7 @@ export default function OtherProfilePage() {
   const loadProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from('users')
-      .select('id, username, display_name, bio, avatar_url, created_at, updated_at')
-      .eq('id', userId)
+      .select('id, username, display_name, bio, avatar_url, created_at, updated_at')      .eq('id', userId)
       .single()
 
     if (data) setProfile(data)
@@ -198,12 +198,22 @@ export default function OtherProfilePage() {
             <div className={`w-24 h-24 rounded-full bg-gradient-to-br ${gradient} mx-auto mb-4 flex items-center justify-center text-white text-4xl font-bold`}>
               {userInitial}
             </div>
-            <h1 className="text-3xl font-display font-bold text-warm-white mb-2">
+            <h1 className="text-3xl font-display font-bold text-warm-white mb-1">
               {userName}
             </h1>
+            {profile.username && (
+              <div className="text-warm-white/50 font-mono text-sm mb-2" dir="ltr">
+                @{profile.username}
+              </div>
+            )}
             <p className="text-warm-white/60">
               {profile.bio || t('default_bio')}
             </p>
+          </div>
+
+          {/* Level */}
+          <div className="max-w-md mx-auto mb-12">
+            <LevelMeter userId={profileId} />
           </div>
 
           {/* Stats */}

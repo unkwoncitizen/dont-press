@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
 import ChainCard from '@/components/ChainCard'
+import LevelMeter from '@/components/LevelMeter'
 import { Story, Chain } from '@/lib/supabase'
 import { useLanguage } from '@/lib/LanguageContext'
 
@@ -167,12 +168,22 @@ export default function ProfilePage() {
             <div className="w-24 h-24 rounded-full bg-gradient-to-br from-coral-red to-warm-orange mx-auto mb-4 flex items-center justify-center text-white text-4xl font-bold">
               {profile?.display_name?.[0] || user.email?.[0] || 'U'}
             </div>
-            <h1 className="text-3xl font-display font-bold text-warm-white mb-2">
+            <h1 className="text-3xl font-display font-bold text-warm-white mb-1">
               {profile?.display_name || user.email?.split('@')[0] || t('user')}
             </h1>
+            {profile?.username && (
+              <div className="text-warm-white/50 font-mono text-sm mb-2" dir="ltr">
+                @{profile.username}
+              </div>
+            )}
             <p className="text-warm-white/60">
               {profile?.bio || t('default_bio')}
             </p>
+          </div>
+
+          {/* Level */}
+          <div className="max-w-md mx-auto mb-12">
+            <LevelMeter userId={user?.id || ''} />
           </div>
 
           {/* Stats */}

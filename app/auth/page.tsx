@@ -33,8 +33,27 @@ function AuthForm() {
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
   const [showForgot, setShowForgot] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const [username, setUsername] = useState('')
   const router = useRouter()
   const { t } = useLanguage()
+
+  // Mirrors the users_username_format CHECK constraint so the rule is visible
+  // before submitting. The database remains the authority on uniqueness.
+  const RESERVED = [
+    'admin', 'administrator', 'root', 'support', 'help', 'system', 'mod', 'moderator',
+    'official', 'team', 'staff', 'api', 'null', 'undefined', 'dontpress', 'dont_press',
+    'press', 'login', 'signup', 'about', 'settings', 'security', 'account',
+  ]
+
+  const usernameError = (() => {
+    const value = username.trim().toLowerCase()
+    if (!value) return ''
+    if (value.length < 3) return t('username_too_short')
+    if (value.length > 24) return t('username_too_long')
+    if (!/^[a-z0-9_]+$/.test(value)) return t('username_invalid_chars')
+    if (RESERVED.includes(value)) return t('username_reserved')
+    return ''
+  })()
 
   // Supabase falls back to the project's Site URL when this is omitted, which
   // is why confirmation links must be pinned to the current origin.
@@ -74,11 +93,20 @@ function AuthForm() {
 
     try {
       if (isSignUp) {
+        if (usernameError) {
+          setError(usernameError)
+          return
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: getRedirectTo(),
+            // The signup trigger reads this and writes public.users.username.
+            // There is no INSERT policy on public.users, so the username can
+            // only ever be set for the account being created.
+            data: { username: username.trim().toLowerCase() },
           },
         })
         if (error) throw error
@@ -113,6 +141,14 @@ function AuthForm() {
     }
     if (/already registered|already been registered|user already exists/i.test(message)) {
       return t('auth_already_registered')
+    }
+    // A taken username surfaces as a unique violation raised by the signup
+    // trigger, so it arrives with no usable wording of its own.
+    if (/users_username_key|users_username_lower_key|duplicate key.*username/i.test(message)) {
+      return t('username_taken')
+    }
+    if (/users_username_format|users_username_check/i.test(message)) {
+      return t('username_invalid_chars')
     }
     if (/invalid login credentials/i.test(message)) {
       return t('auth_bad_credentials')
@@ -257,6 +293,38 @@ function AuthForm() {
                 placeholder="your@email.com"
               />
             </div>
+
+            {isSignUp && (
+              <div>
+                <label className="block text-sm font-semibold text-warm-white mb-2">
+                  {t('auth_username')}
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-warm-white/40 font-mono">@</span>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    required
+                    minLength={3}
+                    maxLength={24}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    dir="ltr"
+                    placeholder="ahmed"
+                    className="flex-1 bg-warm-white/5 border border-warm-white/10 rounded-xl px-4 py-3 text-warm-white focus:outline-none focus:border-coral-red/50"
+                  />
+                </div>
+                {usernameError ? (
+                  <p className="text-xs text-coral-red mt-1.5">{usernameError}</p>
+                ) : (
+                  <p className="text-xs text-warm-white/40 mt-1.5">
+                    {t('auth_username_hint')}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-semibold text-warm-white mb-2">

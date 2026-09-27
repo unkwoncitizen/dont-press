@@ -104,6 +104,22 @@ export const translations: Translations = {
   auth_reset_link_invalid: { en: "This reset link is invalid or has expired. Please request a new one.", ar: "رابط الاستعادة غير صالح أو منتهي الصلاحية. يرجى طلب رابط جديد." },
   auth_request_new_link: { en: "Request a New Link", ar: "طلب رابط جديد" },
 
+  // Username at signup
+  auth_username: { en: "Username", ar: "اسم المستخدم" },
+  auth_username_hint: { en: "This is how others will see you. 3-24 characters, letters, numbers and _", ar: "هكذا سيراك الآخرون. من 3 إلى 24 حرفاً، حروف وأرقام و _" },
+  username_too_short: { en: "Username must be at least 3 characters.", ar: "اسم المستخدم يجب أن يكون 3 أحرف على الأقل." },
+  username_too_long: { en: "Username must be 24 characters or fewer.", ar: "اسم المستخدم يجب ألا يتجاوز 24 حرفاً." },
+  username_invalid_chars: { en: "Use only letters, numbers and underscores.", ar: "استخدم حروفاً وأرقاماً وعلامات الشرطة السفلية فقط." },
+  username_reserved: { en: "That username is reserved. Please pick another.", ar: "اسم المستخدم هذا محجوز. يرجى اختيار اسم آخر." },
+  username_taken: { en: "That username is already taken. Please pick another.", ar: "اسم المستخدم هذا مستخدم بالفعل. يرجى اختيار اسم آخر." },
+
+  // Engagement levels
+  level_label: { en: "Level", ar: "المستوى" },
+  level_of: { en: "of", ar: "من" },
+  level_challenges_done: { en: "challenges completed", ar: "تحدٍ منجز" },
+  level_next_at: { en: "Next level at", ar: "المستوى التالي عند" },
+  level_max_reached: { en: "Highest level reached", ar: "وصلت لأعلى مستوى" },
+
   // Feed / StoryCard
   people_who_pressed: { en: "People who pressed", ar: "أشخاص ضغطوا على الزر" },
   no_stories_feed: { en: "The world is waiting for its first good deed.", ar: "العالم بانتظار أول عمل خير." },

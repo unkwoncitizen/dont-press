@@ -1,13 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Home, Compass, Zap, Link2, User, LogOut } from 'lucide-react'
 import { useLanguage, LanguageToggle } from '@/lib/LanguageContext'
 
 export default function Navigation() {
   const [user, setUser] = useState<any>(null)
+  const [signingOut, setSigningOut] = useState(false)
+  const router = useRouter()
   const { t } = useLanguage()
 
   useEffect(() => {
@@ -24,9 +27,25 @@ export default function Navigation() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-  }
+  // Pages check the session once on mount, so clearing it is not enough on its
+  // own: nothing re-runs, so the view stays put while signed out. Navigate
+  // explicitly and refresh so the RSC cache is rebuilt from the new state.
+  const handleSignOut = useCallback(async () => {
+    if (signingOut) return
+    setSigningOut(true)
+    setUser(null)
+
+    try {
+      await supabase.auth.signOut()
+    } catch (error) {
+      console.error('Sign out failed:', error)
+    } finally {
+      // replace avoids leaving the signed-in page in history, where a back
+      // press would briefly render it before the session check kicked in.
+      router.replace('/auth')
+      router.refresh()
+    }
+  }, [router, signingOut])
 
   if (!user) return null
 
@@ -64,7 +83,8 @@ export default function Navigation() {
             </Link>
             <button
               onClick={handleSignOut}
-              className="text-warm-white/70 hover:text-warm-white transition p-2 rounded-xl hover:bg-warm-white/5"
+              disabled={signingOut}
+              className="text-warm-white/70 hover:text-warm-white transition p-2 rounded-xl hover:bg-warm-white/5 disabled:opacity-50"
               title={t('nav_signout')}
             >
               <LogOut size={20} />
@@ -82,7 +102,8 @@ export default function Navigation() {
           <LanguageToggle />
           <button
             onClick={handleSignOut}
-            className="text-warm-white/70 hover:text-warm-white transition p-1.5 rounded-lg hover:bg-warm-white/5"
+            disabled={signingOut}
+            className="text-warm-white/70 hover:text-warm-white transition p-1.5 rounded-lg hover:bg-warm-white/5 disabled:opacity-50"
             title={t('nav_signout')}
           >
             <LogOut size={18} />
