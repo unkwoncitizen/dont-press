@@ -12,22 +12,38 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
   const router = useRouter()
   const { t } = useLanguage()
+
+  // Supabase falls back to the project's Site URL when this is omitted, which
+  // is why confirmation links must be pinned to the current origin.
+  const getRedirectTo = () => `${window.location.origin}/app`
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setPendingEmail(null)
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: getRedirectTo(),
+          },
         })
         if (error) throw error
-        alert(t('auth_check_email'))
+
+        // When email confirmation is disabled, signUp returns a session directly.
+        if (data.session) {
+          router.push('/app')
+          return
+        }
+
+        setPendingEmail(email)
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -37,10 +53,28 @@ export default function AuthPage() {
         router.push('/app')
       }
     } catch (error: any) {
-      setError(error.message)
+      setError(friendlyAuthError(error))
     } finally {
       setLoading(false)
     }
+  }
+
+  const friendlyAuthError = (error: any): string => {
+    const message: string = error?.message || ''
+
+    if (error?.status === 429 || /rate limit|too many|security purposes/i.test(message)) {
+      return t('auth_rate_limited')
+    }
+    if (/already registered|already been registered|user already exists/i.test(message)) {
+      return t('auth_already_registered')
+    }
+    if (/invalid login credentials/i.test(message)) {
+      return t('auth_bad_credentials')
+    }
+    if (/redirect.*not allowed|invalid redirect/i.test(message)) {
+      return t('auth_bad_redirect')
+    }
+    return message || t('auth_generic_error')
   }
 
   const handleGoogleAuth = async () => {
@@ -82,7 +116,28 @@ export default function AuthPage() {
             </div>
           )}
 
+          {pendingEmail && (
+            <div className="bg-kindness-green/15 border border-kindness-green/50 text-warm-white px-4 py-4 rounded-xl mb-4 text-sm">
+              <div className="font-semibold mb-1">{t('auth_check_email')}</div>
+              <div className="text-warm-white/70 text-xs leading-relaxed">
+                {t('auth_check_email_hint')}{' '}
+                <span className="text-warm-white font-semibold break-all">{pendingEmail}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setPendingEmail(null)
+                  setIsSignUp(false)
+                  setError('')
+                }}
+                className="mt-3 text-xs text-coral-red font-semibold hover:underline"
+              >
+                {t('auth_back_to_signin')}
+              </button>
+            </div>
+          )}
+
           {/* Email/Password Form */}
+          {!pendingEmail && (
           <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
             <div>
               <label className="block text-sm font-semibold text-warm-white mb-2">
@@ -121,8 +176,10 @@ export default function AuthPage() {
               {loading ? t('loading') : isSignUp ? t('nav_signup') : t('nav_signin')}
             </button>
           </form>
+          )}
 
           {/* Divider */}
+          {!pendingEmail && (
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-warm-white/10"></div>
@@ -133,8 +190,10 @@ export default function AuthPage() {
               </span>
             </div>
           </div>
+          )}
 
           {/* Social Auth */}
+          {!pendingEmail && (
           <button
             onClick={handleGoogleAuth}
             className="w-full bg-warm-white text-primary-dark px-6 py-3 rounded-xl font-semibold hover:bg-warm-white/90 transition flex items-center justify-center gap-2 mb-4"
@@ -159,8 +218,10 @@ export default function AuthPage() {
             </svg>
             Google
           </button>
+          )}
 
           {/* Toggle Sign In/Up */}
+          {!pendingEmail && (
           <div className="text-center text-sm text-warm-white/60">
             {isSignUp ? t('auth_have_account') : t('auth_no_account')}{' '}
             <button
@@ -173,6 +234,7 @@ export default function AuthPage() {
               {isSignUp ? t('nav_signin') : t('nav_signup')}
             </button>
           </div>
+          )}
         </div>
 
         {/* Age Notice */}
