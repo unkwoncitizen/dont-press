@@ -78,6 +78,13 @@ export const translations: Translations = {
   auth_no_account: { en: "Don't have an account?", ar: "ليس لديك حساب؟" },
   auth_age_notice: { en: "By continuing, you confirm that you are 18 years or older.", ar: "بالمتابعة، فإنك تؤكد أن عمرك 18 عاماً أو أكثر." },
   auth_check_email: { en: "Check your email for the confirmation link!", ar: "يرجى التحقق من بريدك الإلكتروني لتأكيد الحساب!" },
+  auth_check_email_hint: { en: "Open the link we sent to", ar: "افتح الرابط الذي أرسلناه إلى" },
+  auth_back_to_signin: { en: "Already confirmed? Sign in", ar: "تم التأكيد بالفعل؟ سجّل الدخول" },
+  auth_rate_limited: { en: "Too many attempts. Please wait a few minutes and try again.", ar: "عدد المحاولات كبير جداً. يرجى الانتظار بضع دقائق ثم المحاولة مرة أخرى." },
+  auth_already_registered: { en: "This email is already registered. Try signing in instead.", ar: "هذا البريد الإلكتروني مسجل بالفعل. جرّب تسجيل الدخول بدلاً من ذلك." },
+  auth_bad_credentials: { en: "Incorrect email or password.", ar: "البريد الإلكتروني أو كلمة المرور غير صحيحة." },
+  auth_bad_redirect: { en: "This sign-in link is no longer valid. Please request a new one.", ar: "رابط تسجيل الدخول هذا لم يعد صالحاً. يرجى طلب رابط جديد." },
+  auth_generic_error: { en: "Something went wrong. Please try again.", ar: "حدث خطأ ما. يرجى المحاولة مرة أخرى." },
 
   // Feed / StoryCard
   people_who_pressed: { en: "People who pressed", ar: "أشخاص ضغطوا على الزر" },
