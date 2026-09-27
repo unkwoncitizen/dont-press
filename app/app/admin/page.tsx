@@ -52,6 +52,7 @@ export default function AdminPage() {
   const [stories, setStories] = useState<ModStory[]>([])
   const [deleted, setDeleted] = useState<ModStory[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [reports, setReports] = useState<Report[]>([])
   const [busyReport, setBusyReport] = useState<string | null>(null)
@@ -68,59 +69,38 @@ export default function AdminPage() {
     return () => subscription.unsubscribe()
   }, [router])
 
-  const load = useCallback(async () => {
+  // One loader for the whole panel. It used to be four, and reports/requests
+  // only fetched when their tab was opened, so every badge read 0 until you
+  // clicked it. It also ignored query errors, so a failed query looked
+  // identical to an empty queue.
+  const loadAll = useCallback(async () => {
     if (!isAdmin) return
     setLoading(true)
+    setLoadError(null)
 
-    try {
-      const base = `
+    const base = `
         id, content, photo_url, created_at, deleted_at, user_id,
         users:user_id (id, username, display_name),
         challenges:challenge_id (title),
         comments (id)
       `
 
-      const [liveRes, removedRes] = await Promise.all([
-        supabase
-          .from('stories')
-          .select(base)
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false })
-          .limit(50),
+    const [liveRes, removedRes, reportsRes, requestsRes] = await Promise.all([
+      supabase
+        .from('stories')
+        .select(base)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(50),
 
-        supabase
-          .from('stories')
-          .select(base)
-          .not('deleted_at', 'is', null)
-          .order('deleted_at', { ascending: false })
-          .limit(50),
-      ])
+      supabase
+        .from('stories')
+        .select(base)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false })
+        .limit(50),
 
-      if (liveRes.data) {
-        setStories(
-          (liveRes.data as unknown as ModStory[]).map((s) => ({
-            ...s,
-            author: s.users?.display_name || s.users?.username || t('user'),
-            comment_count: Array.isArray(s.comments) ? s.comments.length : 0,
-          }))
-        )
-      }
-      if (removedRes.data) {
-        setDeleted(removedRes.data as unknown as ModStory[])
-      }
-    } catch (error) {
-      console.error('Error loading moderation queue:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [isAdmin, t])
-
-  // Reports are grouped by post so one bad post with five reports reads as one
-  // item, not five.
-  const loadReports = useCallback(async () => {
-    if (!isAdmin) return
-    try {
-      const { data, error } = await supabase
+      supabase
         .from('story_reports')
         .select(`
           id, story_id, reason, details, status, created_at,
@@ -132,15 +112,47 @@ export default function AdminPage() {
         `)
         .eq('status', 'open')
         .order('created_at', { ascending: false })
-        .limit(100)
+        .limit(100),
 
-      if (error) throw error
+      supabase
+        .from('story_deletion_requests')
+        .select(`
+          id, story_id, reason, created_at,
+          requester_id,
+          stories:story_id (
+            id, content, created_at, deleted_at,
+            users:user_id (id, username, display_name)
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(100),
+    ])
 
+    // Report the first failure rather than quietly showing an empty queue.
+    const failure = liveRes.error || removedRes.error || reportsRes.error || requestsRes.error
+    if (failure) {
+      console.error('Moderation panel query failed:', failure)
+      setLoadError(failure.message)
+    }
+
+    if (liveRes.data) {
+      setStories(
+        (liveRes.data as unknown as ModStory[]).map((s) => ({
+          ...s,
+          author: s.users?.display_name || s.users?.username || t('user'),
+          comment_count: Array.isArray(s.comments) ? s.comments.length : 0,
+        }))
+      )
+    }
+    if (removedRes.data) setDeleted(removedRes.data as unknown as ModStory[])
+
+    // Group reports by post: one bad post with five reports is one item.
+    if (reportsRes.data) {
       const grouped = new Map<string, Report>()
-      for (const row of (data || []) as any[]) {
+      for (const row of reportsRes.data as any[]) {
         const story = Array.isArray(row.stories) ? row.stories[0] : row.stories
         if (!story) continue
-
         const existing = grouped.get(row.story_id)
         if (existing) {
           existing.count += 1
@@ -158,35 +170,14 @@ export default function AdminPage() {
           report_ids: [row.id],
         })
       }
-      // Array.from rather than spread: the project targets es5, where spreading
-      // a Map/Set needs downlevelIteration.
+      // Array.from, not spread: the project targets es5, where spreading a
+      // Map needs downlevelIteration.
       setReports(Array.from(grouped.values()))
-    } catch (error) {
-      console.error('Error loading reports:', error)
     }
-  }, [isAdmin, t])
 
-  const loadDelRequests = useCallback(async () => {
-    if (!isAdmin) return
-    try {
-      const { data, error } = await supabase
-        .from('story_deletion_requests')
-        .select(`
-          id, story_id, reason, created_at,
-          requester_id,
-          stories:story_id (
-            id, content, created_at, deleted_at,
-            users:user_id (id, username, display_name)
-          )
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true })
-        .limit(100)
-
-      if (error) throw error
-
+    if (requestsRes.data) {
       setDelRequests(
-        ((data || []) as any[]).map((row) => {
+        (requestsRes.data as any[]).map((row) => {
           const story = Array.isArray(row.stories) ? row.stories[0] : row.stories
           return {
             id: row.id,
@@ -198,10 +189,14 @@ export default function AdminPage() {
           }
         })
       )
-    } catch (error) {
-      console.error('Error loading deletion requests:', error)
     }
+
+    setLoading(false)
   }, [isAdmin, t])
+
+  useEffect(() => {
+    loadAll()
+  }, [loadAll])
 
   const resolveDeletion = async (requestId: string, approve: boolean) => {
     setBusyReport(requestId)
@@ -213,22 +208,14 @@ export default function AdminPage() {
         p_approve: approve,
       })
       if (error) throw error
-      if (approve) {
-        setStories((prev) => prev.filter((s) => s.id !== requestId))
-        await Promise.all([load(), loadDelRequests()])
-      }
+      await loadAll()
     } catch (error) {
       console.error('Error resolving deletion request:', error)
-      await loadDelRequests()
+      await loadAll()
     } finally {
       setBusyReport(null)
     }
   }
-
-  useEffect(() => {
-    if (tab === 'reported') loadReports()
-    if (tab === 'requests') loadDelRequests()
-  }, [tab, loadReports, loadDelRequests])
 
   // Resolving a report without removing the post: the report is marked
   // dismissed so it stops counting but the content stays.
@@ -241,7 +228,7 @@ export default function AdminPage() {
         .update({ status, resolved_at: new Date().toISOString() })
         .in('id', ids)
       if (error) throw error
-      await loadReports()
+      await loadAll()
     } catch (error) {
       console.error('Error resolving reports:', error)
     } finally {
@@ -265,7 +252,7 @@ export default function AdminPage() {
         .in('id', reportIds)
       if (repErr) throw repErr
 
-      await Promise.all([load(), loadReports()])
+      await loadAll()
     } catch (error) {
       console.error('Error removing reported story:', error)
     } finally {
@@ -285,10 +272,10 @@ export default function AdminPage() {
         .eq('id', id)
         .is('deleted_at', null)
       if (error) throw error
-      await load()
+      await loadAll()
     } catch (error) {
       console.error('Error removing story:', error)
-      await load()
+      await loadAll()
     } finally {
       setBusyId(null)
     }
@@ -302,7 +289,7 @@ export default function AdminPage() {
         .update({ deleted_at: null, deleted_by: null })
         .eq('id', id)
       if (error) throw error
-      await load()
+      await loadAll()
     } catch (error) {
       console.error('Error restoring story:', error)
     } finally {
@@ -316,7 +303,7 @@ export default function AdminPage() {
     try {
       const { error } = await supabase.from('stories').delete().eq('id', id)
       if (error) throw error
-      await load()
+      await loadAll()
     } catch (error) {
       console.error('Error purging story:', error)
     } finally {
@@ -424,9 +411,16 @@ export default function AdminPage() {
             </button>
           </div>
 
-          {loading && tab !== 'reported' ? (
-            <div className="card text-center py-12 text-warm-white/50">{t('loading')}</div>
-          ) : tab === 'reported' ? (
+          {loadError && (
+            <div className="bg-coral-red/20 border border-coral-red text-coral-red px-4 py-3 rounded-xl mb-4 text-xs break-words">
+              {t('admin_load_error')}: {loadError}
+            </div>
+          )}
+
+          {/* Each tab renders from its own slice. The loading gate applies only
+              to the two post lists, so a pending refresh never blanks the
+              request queue. */}
+          {tab === 'reported' ? (
             reports.length === 0 ? (
               <div className="card text-center py-12">
                 <div className="text-5xl mb-4">✨</div>
@@ -553,6 +547,8 @@ export default function AdminPage() {
                 ))}
               </div>
             )
+          ) : loading ? (
+            <div className="card text-center py-12 text-warm-white/50">{t('loading')}</div>
           ) : list.length === 0 ? (
             <div className="card text-center py-12">
               <div className="text-5xl mb-4">{tab === 'live' ? '✨' : '🗑️'}</div>

@@ -124,6 +124,7 @@ export const translations: Translations = {
   reject_request: { en: "Reject", ar: "رفض" },
   reason_label: { en: "Reason", ar: "السبب" },
   requested_by_author_at: { en: "requested {when}", ar: "طلب في {when}" },
+  admin_load_error: { en: "Could not load the moderation queue", ar: "تعذّر تحميل قائمة الإشراف" },
 
   // Reporting (member-facing)
   report_post: { en: "Report post", ar: "الإبلاغ عن المنشور" },
