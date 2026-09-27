@@ -111,6 +111,20 @@ export const translations: Translations = {
   admin_nothing_reported: { en: "Nothing has been reported. ", ar: "لم يتم الإبلاغ عن أي شيء. " },
   report_dismiss: { en: "Dismiss, keep post", ar: "تجاهل واحتفظ بالمنشور" },
 
+  // Deletion requests
+  request_delete_post: { en: "Request deletion", ar: "طلب حذف المنشور" },
+  delete_reason_placeholder: { en: "Why? (optional)", ar: "لماذا؟ (اختياري)" },
+  submit_delete_request: { en: "Send request", ar: "إرسال الطلب" },
+  delete_request_pending: { en: "Deletion requested", ar: "تم طلب الحذف" },
+  delete_request_pending_hint: { en: "A moderator will review it. The post stays visible until then.", ar: "سيراجعه مشرف. سيبقى المنشور ظاهراً حتى ذلك الحين." },
+  confirm_delete_own_request: { en: "Ask a moderator to remove this post? It stays visible until they approve.", ar: "هل تريد أن يطلب من مشرف إزالة هذا المنشور؟ سيبقى ظاهراً حتى الموافقة." },
+  tab_delete_requests: { en: "Delete requests", ar: "طلبات الحذف" },
+  admin_no_delete_requests: { en: "No pending deletion requests.", ar: "لا توجد طلبات حذف معلّقة." },
+  approve_and_remove: { en: "Approve and remove", ar: "موافقة وإزالة" },
+  reject_request: { en: "Reject", ar: "رفض" },
+  reason_label: { en: "Reason", ar: "السبب" },
+  requested_by_author_at: { en: "requested {when}", ar: "طلب في {when}" },
+
   // Reporting (member-facing)
   report_post: { en: "Report post", ar: "الإبلاغ عن المنشور" },
   report_title: { en: "Report this post", ar: "أبلغ عن هذا المنشور" },

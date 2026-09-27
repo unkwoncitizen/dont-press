@@ -68,6 +68,7 @@ export default function OtherProfilePage() {
       `)
       .eq('user_id', userId)
       .eq('is_anonymous', false)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (data) setStories(data || [])

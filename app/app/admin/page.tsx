@@ -3,11 +3,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, Trash2, RotateCcw, Users, FileText, MessageSquare, Home, Flag, Check } from 'lucide-react'
+import { Shield, Trash2, RotateCcw, FileText, MessageSquare, Home, Flag, Check, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useIsAdmin } from '@/lib/useIsAdmin'
 import Navigation from '@/components/Navigation'
 import { useLanguage } from '@/lib/LanguageContext'
+
+interface DelRequest {
+  id: string
+  story_id: string
+  reason: string | null
+  created_at: string
+  content: string
+  author?: string
+  requester?: string
+  requester_username?: string
+  challenge?: string
+}
 
 interface Report {
   story_id: string
@@ -43,7 +55,8 @@ export default function AdminPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [reports, setReports] = useState<Report[]>([])
   const [busyReport, setBusyReport] = useState<string | null>(null)
-  const [tab, setTab] = useState<'live' | 'removed' | 'reported'>('live')
+  const [delRequests, setDelRequests] = useState<DelRequest[]>([])
+  const [tab, setTab] = useState<'live' | 'removed' | 'reported' | 'requests'>('live')
   const { isAdmin, checked } = useIsAdmin()
   const router = useRouter()
   const { t, language } = useLanguage()
@@ -153,9 +166,69 @@ export default function AdminPage() {
     }
   }, [isAdmin, t])
 
+  const loadDelRequests = useCallback(async () => {
+    if (!isAdmin) return
+    try {
+      const { data, error } = await supabase
+        .from('story_deletion_requests')
+        .select(`
+          id, story_id, reason, created_at,
+          requester_id,
+          stories:story_id (
+            id, content, created_at, deleted_at,
+            users:user_id (id, username, display_name)
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(100)
+
+      if (error) throw error
+
+      setDelRequests(
+        ((data || []) as any[]).map((row) => {
+          const story = Array.isArray(row.stories) ? row.stories[0] : row.stories
+          return {
+            id: row.id,
+            story_id: row.story_id,
+            reason: row.reason,
+            created_at: row.created_at,
+            content: story?.content || '',
+            author: story?.users?.display_name || story?.users?.username || t('user'),
+          }
+        })
+      )
+    } catch (error) {
+      console.error('Error loading deletion requests:', error)
+    }
+  }, [isAdmin, t])
+
+  const resolveDeletion = async (requestId: string, approve: boolean) => {
+    setBusyReport(requestId)
+    // Remove from the queue immediately so the row does not linger.
+    setDelRequests((prev) => prev.filter((r) => r.id !== requestId))
+    try {
+      const { error } = await supabase.rpc('resolve_deletion_request', {
+        p_request_id: requestId,
+        p_approve: approve,
+      })
+      if (error) throw error
+      if (approve) {
+        setStories((prev) => prev.filter((s) => s.id !== requestId))
+        await Promise.all([load(), loadDelRequests()])
+      }
+    } catch (error) {
+      console.error('Error resolving deletion request:', error)
+      await loadDelRequests()
+    } finally {
+      setBusyReport(null)
+    }
+  }
+
   useEffect(() => {
     if (tab === 'reported') loadReports()
-  }, [tab, loadReports])
+    if (tab === 'requests') loadDelRequests()
+  }, [tab, loadReports, loadDelRequests])
 
   // Resolving a report without removing the post: the report is marked
   // dismissed so it stops counting but the content stays.
@@ -202,6 +275,9 @@ export default function AdminPage() {
 
   const remove = async (id: string) => {
     setBusyId(id)
+    // Drop it from the list first. The previous version waited on a refetch,
+    // which made the row sit there looking unresponsive for a second.
+    setStories((prev) => prev.filter((s) => s.id !== id))
     try {
       const { error } = await supabase
         .from('stories')
@@ -212,6 +288,7 @@ export default function AdminPage() {
       await load()
     } catch (error) {
       console.error('Error removing story:', error)
+      await load()
     } finally {
       setBusyId(null)
     }
@@ -324,6 +401,17 @@ export default function AdminPage() {
               </span>
             </button>
             <button
+              onClick={() => setTab('requests')}
+              className={`px-5 py-2.5 rounded-2xl font-semibold transition text-sm ${
+                tab === 'requests' ? 'bg-coral-red text-white' : 'bg-warm-white/10 text-warm-white hover:bg-warm-white/20'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Trash2 size={15} />
+                {t('tab_delete_requests')} ({delRequests.length})
+              </span>
+            </button>
+            <button
               onClick={() => setTab('reported')}
               className={`px-5 py-2.5 rounded-2xl font-semibold transition text-sm ${
                 tab === 'reported' ? 'bg-coral-red text-white' : 'bg-warm-white/10 text-warm-white hover:bg-warm-white/20'
@@ -410,6 +498,61 @@ export default function AdminPage() {
                 ))}
               </div>
             )
+          ) : tab === 'requests' ? (
+            delRequests.length === 0 ? (
+              <div className="card text-center py-12">
+                <div className="text-5xl mb-4">📭</div>
+                <p className="text-warm-white/50 text-sm">{t('admin_no_delete_requests')}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {delRequests.map((r) => (
+                  <div key={r.id} className="card !p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2 flex-wrap">
+                      <div className="text-sm min-w-0">
+                        <span className="font-semibold text-warm-white">@{r.author}</span>
+                        <span className="text-warm-white/40 text-xs ms-2">
+                          {t('requested_by_author_at').replace('{when}', new Date(r.created_at).toLocaleString(
+                            language === 'ar' ? 'ar-MA' : 'en-US',
+                            { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+                          ))}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-warm-white/85 whitespace-pre-wrap break-words mb-2">
+                      {r.content.length > 200 ? r.content.slice(0, 200) + '…' : r.content}
+                    </p>
+
+                    {r.reason && (
+                      <p className="text-xs text-warm-white/60 bg-warm-white/5 rounded-lg px-3 py-2 mb-3">
+                        <span className="text-warm-white/40">{t('reason_label')}: </span>
+                        {r.reason}
+                      </p>
+                    )}
+
+                    <div className="flex gap-2 pt-3 border-t border-warm-white/10 flex-wrap">
+                      <button
+                        onClick={() => resolveDeletion(r.id, true)}
+                        disabled={busyReport === r.id}
+                        className="bg-coral-red text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-coral-red/90 transition inline-flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Trash2 size={13} />
+                        {t('approve_and_remove')}
+                      </button>
+                      <button
+                        onClick={() => resolveDeletion(r.id, false)}
+                        disabled={busyReport === r.id}
+                        className="btn-secondary text-xs !py-2 inline-flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <X size={13} />
+                        {t('reject_request')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           ) : list.length === 0 ? (
             <div className="card text-center py-12">
               <div className="text-5xl mb-4">{tab === 'live' ? '✨' : '🗑️'}</div>
@@ -418,78 +561,74 @@ export default function AdminPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {list.map((story) => (
                 <div
                   key={story.id}
-                  className={`card ${story.deleted_at ? 'opacity-70' : ''}`}
+                  className={`card !p-3 flex items-center gap-3 ${story.deleted_at ? 'opacity-60' : ''}`}
                 >
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <Users size={13} className="text-warm-white/40" />
-                        <span className="text-sm font-semibold text-warm-white">
-                          @{story.users?.username || story.users?.display_name || t('user')}
+                  {/* No photo here on purpose: the queue only needs who, when
+                      and a line of text, and images make it heavy to scan. */}
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-coral-red to-warm-orange flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    {(story.users?.username || story.users?.display_name || 'U')[0]?.toUpperCase()}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-warm-white truncate">
+                        @{story.users?.username || story.users?.display_name || t('user')}
+                      </span>
+                      {story.deleted_at && (
+                        <span className="text-[10px] bg-coral-red/20 text-coral-red px-1.5 py-0.5 rounded-full font-semibold">
+                          {t('removed_badge')}
                         </span>
-                        {story.deleted_at && (
-                          <span className="text-[10px] bg-coral-red/20 text-coral-red px-2 py-0.5 rounded-full font-semibold">
-                            {t('removed_badge')}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-warm-white/40">
-                        {new Date(story.created_at).toLocaleString(
-                          language === 'ar' ? 'ar-MA' : 'en-US',
-                          { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
-                        )}
-                        {typeof story.comment_count === 'number' && (
-                          <span className="ms-3 inline-flex items-center gap-1">
-                            <MessageSquare size={11} />
-                            {story.comment_count}
-                          </span>
-                        )}
-                      </div>
+                      )}
+                      {typeof story.comment_count === 'number' && story.comment_count > 0 && (
+                        <span className="text-[10px] text-warm-white/40 inline-flex items-center gap-0.5">
+                          <MessageSquare size={10} />
+                          {story.comment_count}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-warm-white/60 truncate">
+                      {story.content.length > 90 ? story.content.slice(0, 90) + '…' : story.content}
+                    </p>
+                    <div className="text-[11px] text-warm-white/35">
+                      {new Date(story.created_at).toLocaleString(
+                        language === 'ar' ? 'ar-MA' : 'en-US',
+                        { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+                      )}
                     </div>
                   </div>
 
-                  <p className="text-sm text-warm-white/85 whitespace-pre-wrap break-words mb-3">
-                    {story.content.length > 300 ? story.content.slice(0, 300) + '…' : story.content}
-                  </p>
-
-                  {story.photo_url && (
-                    <div className="rounded-xl overflow-hidden mb-3 max-w-xs">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={story.photo_url} alt="" className="w-full h-32 object-cover" />
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-3 border-t border-warm-white/10 flex-wrap">
+                  <div className="shrink-0">
                     {story.deleted_at ? (
-                      <>
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => restore(story.id)}
                           disabled={busyId === story.id}
-                          className="btn-secondary text-xs !py-2 inline-flex items-center gap-1.5 disabled:opacity-50"
+                          title={t('restore_post')}
+                          className="p-2 rounded-lg bg-warm-white/10 text-warm-white hover:bg-warm-white/20 transition disabled:opacity-50"
                         >
-                          <RotateCcw size={13} />
-                          {t('restore_post')}
+                          <RotateCcw size={14} />
                         </button>
                         <button
                           onClick={() => purge(story.id)}
                           disabled={busyId === story.id}
-                          className="text-xs text-coral-red hover:underline font-semibold px-3 py-2 disabled:opacity-50"
+                          title={t('purge_permanently')}
+                          className="p-2 rounded-lg text-coral-red/70 hover:bg-coral-red/10 transition disabled:opacity-50"
                         >
-                          {t('purge_permanently')}
+                          <Trash2 size={14} />
                         </button>
-                      </>
+                      </div>
                     ) : (
                       <button
                         onClick={() => remove(story.id)}
                         disabled={busyId === story.id}
-                        className="text-xs bg-coral-red/20 text-coral-red px-4 py-2 rounded-xl font-semibold hover:bg-coral-red/30 transition inline-flex items-center gap-1.5 disabled:opacity-50"
+                        title={t('moderate_remove_post')}
+                        className="p-2 rounded-lg bg-coral-red/15 text-coral-red hover:bg-coral-red/25 transition disabled:opacity-50"
                       >
-                        <Trash2 size={13} />
-                        {t('moderate_remove_post')}
+                        <Trash2 size={14} />
                       </button>
                     )}
                   </div>

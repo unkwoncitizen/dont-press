@@ -48,7 +48,7 @@ export default function DiscoverPage() {
         query = query.order('created_at', { ascending: false })
       }
 
-      const { data, error } = await query.limit(20)
+      const { data, error } = await query.limit(20).is('deleted_at', null)
 
       if (error) throw error
       setStories(data || [])

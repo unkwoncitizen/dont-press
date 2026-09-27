@@ -64,6 +64,7 @@ export default function ProfilePage() {
         comments (id, content, user_id, created_at, users:user_id (display_name))
       `)
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (data) setStories(data || [])

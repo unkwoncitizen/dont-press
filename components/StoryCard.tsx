@@ -48,6 +48,9 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteRequested, setDeleteRequested] = useState(false)
+  const [deleteReason, setDeleteReason] = useState('')
+  const [deleteError, setDeleteError] = useState('')
   const [showReport, setShowReport] = useState(false)
   const [reportReason, setReportReason] = useState('')
   const [reportDetails, setReportDetails] = useState('')
@@ -100,34 +103,53 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
   const gradient = getGradient(userName)
   const localizedChallenge = localizeChallenge(story.challenges, language)
 
-  // Soft delete: deleted_at hides the post everywhere without destroying the
-  // comments and reactions that cascade on a hard delete. RLS decides whether
-  // this actually succeeds, so the button is only a request.
+  // Members no longer delete outright: they ask, and a moderator decides.
+  // Moderators keep the immediate path, since they are the reviewer.
   const handleDelete = async () => {
     if (isDeleting) return
     setIsDeleting(true)
+    setDeleteError('')
 
     try {
-      const { error } = await supabase
-        .from('stories')
-        .update({ deleted_at: new Date().toISOString(), deleted_by: currentUserId })
-        .eq('id', story.id)
-        .is('deleted_at', null)
+      if (canModerate) {
+        const { error } = await supabase
+          .from('stories')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: currentUserId })
+          .eq('id', story.id)
+          .is('deleted_at', null)
 
-      if (error) throw error
+        if (error) throw error
+        onDeleted?.(story.id)
+      } else {
+        const { data, error } = await supabase.rpc('request_story_deletion', {
+          p_story_id: story.id,
+          p_reason: deleteReason.trim() || null,
+        })
+
+        if (error) throw error
+
+        if (data?.status === 'already_removed') {
+          onDeleted?.(story.id)
+        } else {
+          setDeleteRequested(true)
+        }
+      }
 
       setConfirmDelete(false)
       setShowMenu(false)
-      onDeleted?.(story.id)
-    } catch (err) {
+      setDeleteReason('')
+    } catch (err: any) {
+      // Surface it: a silent failure here looks identical to "nothing happened",
+      // which is exactly how this bug went unnoticed.
       console.error('Error deleting story:', err)
+      setDeleteError(err?.message || t('auth_generic_error'))
     } finally {
       setIsDeleting(false)
     }
   }
 
   const isOwnStory = currentUserId !== null && story.user_id === currentUserId
-  const canDelete = isOwnStory || canModerate
+  const canDelete = (isOwnStory || canModerate) && !deleteRequested
   // Reporting your own post makes no sense, and the database rejects it too.
   const canReport = currentUserId !== null && !isOwnStory
 
@@ -411,7 +433,7 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
         )}
 
         {/* Owner / moderator / reporting controls */}
-        {(canDelete || canReport || reportSent) && (
+        {(canDelete || canReport || reportSent || deleteRequested) && (
           <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -435,20 +457,47 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
                   )}
 
                   {confirmDelete ? (
-                    <div className="p-2">
-                      <p className="text-xs text-warm-white/70 mb-3">
-                        {isOwnStory ? t('confirm_delete_own') : t('confirm_delete_other')}
+                    <div className="p-2 w-64">
+                      <p className="text-xs text-warm-white/70 mb-2">
+                        {isOwnStory && !canModerate
+                          ? t('confirm_delete_own_request')
+                          : isOwnStory
+                          ? t('confirm_delete_own')
+                          : t('confirm_delete_other')}
                       </p>
+
+                      {deleteError && (
+                        <p className="text-[11px] text-coral-red mb-2">{deleteError}</p>
+                      )}
+
+                      {isOwnStory && !canModerate && (
+                        <input
+                          type="text"
+                          value={deleteReason}
+                          onChange={(e) => setDeleteReason(e.target.value)}
+                          maxLength={200}
+                          placeholder={t('delete_reason_placeholder')}
+                          className="w-full bg-warm-white/5 border border-warm-white/10 rounded-lg px-2.5 py-1.5 text-xs text-warm-white focus:outline-none focus:border-coral-red/50 mb-2"
+                        />
+                      )}
+
                       <div className="flex gap-2">
                         <button
                           onClick={handleDelete}
                           disabled={isDeleting}
                           className="flex-1 bg-coral-red text-white text-xs font-semibold py-2 rounded-xl hover:bg-coral-red/90 transition disabled:opacity-50"
                         >
-                          {isDeleting ? t('deleting') : t('confirm_delete_yes')}
+                          {isDeleting
+                            ? t('loading')
+                            : isOwnStory && !canModerate
+                            ? t('submit_delete_request')
+                            : t('confirm_delete_yes')}
                         </button>
                         <button
-                          onClick={() => setConfirmDelete(false)}
+                          onClick={() => {
+                            setConfirmDelete(false)
+                            setDeleteError('')
+                          }}
                           className="flex-1 bg-warm-white/10 text-warm-white text-xs font-semibold py-2 rounded-xl hover:bg-warm-white/20 transition"
                         >
                           {t('cancel')}
@@ -463,7 +512,11 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
                           className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-coral-red hover:bg-coral-red/10 rounded-xl transition text-start"
                         >
                           <Trash2 size={15} />
-                          {isOwnStory ? t('delete_post') : t('moderate_remove_post')}
+                          {isOwnStory && !canModerate
+                            ? t('request_delete_post')
+                            : isOwnStory
+                            ? t('delete_post')
+                            : t('moderate_remove_post')}
                         </button>
                       )}
 
@@ -484,6 +537,18 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
                         <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-kindness-green">
                           <Check size={15} />
                           {t('report_sent')}
+                        </div>
+                      )}
+
+                      {deleteRequested && (
+                        <div className="px-3 py-2.5">
+                          <div className="flex items-center gap-2 text-sm text-soft-yellow">
+                            <Loader2 size={14} className="animate-spin" />
+                            {t('delete_request_pending')}
+                          </div>
+                          <p className="text-[11px] text-warm-white/50 mt-1 leading-relaxed">
+                            {t('delete_request_pending_hint')}
+                          </p>
                         </div>
                       )}
                     </>

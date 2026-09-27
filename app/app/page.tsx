@@ -44,6 +44,10 @@ export default function AppPage() {
         `)
         .order('created_at', { ascending: false })
         .limit(20)
+        // Explicit rather than relying on the RLS SELECT policy: moderators can
+        // read soft-deleted stories (the admin panel needs that), so without
+        // this a deleted post reappears in the feed after any refetch.
+        .is('deleted_at', null)
 
       if (error) throw error
       setStories(data || [])
