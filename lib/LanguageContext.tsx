@@ -86,6 +86,24 @@ export const translations: Translations = {
   auth_bad_redirect: { en: "This sign-in link is no longer valid. Please request a new one.", ar: "رابط تسجيل الدخول هذا لم يعد صالحاً. يرجى طلب رابط جديد." },
   auth_generic_error: { en: "Something went wrong. Please try again.", ar: "حدث خطأ ما. يرجى المحاولة مرة أخرى." },
 
+  // Password reset
+  auth_forgot_link: { en: "Forgot your password?", ar: "هل نسيت كلمة المرور؟" },
+  auth_forgot_title: { en: "Reset Password", ar: "إعادة تعيين كلمة المرور" },
+  auth_forgot_hint: { en: "Enter your email and we'll send you a link to choose a new password.", ar: "أدخل بريدك الإلكتروني وسنرسل لك رابطاً لاختيار كلمة مرور جديدة." },
+  auth_send_reset: { en: "Send Reset Link", ar: "إرسال رابط الاستعادة" },
+  auth_reset_sent: { en: "Reset link sent!", ar: "تم إرسال رابط الاستعادة!" },
+  auth_new_password_title: { en: "Choose a New Password", ar: "اختر كلمة مرور جديدة" },
+  auth_new_password_hint: { en: "Pick something you haven't used before. Minimum 6 characters.", ar: "اختر كلمة لم تستخدمها من قبل. 6 أحرف كحد أدنى." },
+  auth_new_password: { en: "New Password", ar: "كلمة المرور الجديدة" },
+  auth_confirm_password: { en: "Confirm New Password", ar: "تأكيد كلمة المرور الجديدة" },
+  auth_save_password: { en: "Save New Password", ar: "حفظ كلمة المرور الجديدة" },
+  auth_password_saved: { en: "Password updated.", ar: "تم تحديث كلمة المرور." },
+  auth_redirecting: { en: "Taking you to the app...", ar: "جاري الانتقال إلى التطبيق..." },
+  auth_passwords_mismatch: { en: "Passwords do not match.", ar: "كلمتا المرور غير متطابقتين." },
+  auth_password_too_short: { en: "Password must be at least 6 characters.", ar: "يجب أن تكون كلمة المرور 6 أحرف على الأقل." },
+  auth_reset_link_invalid: { en: "This reset link is invalid or has expired. Please request a new one.", ar: "رابط الاستعادة غير صالح أو منتهي الصلاحية. يرجى طلب رابط جديد." },
+  auth_request_new_link: { en: "Request a New Link", ar: "طلب رابط جديد" },
+
   // Feed / StoryCard
   people_who_pressed: { en: "People who pressed", ar: "أشخاص ضغطوا على الزر" },
   no_stories_feed: { en: "The world is waiting for its first good deed.", ar: "العالم بانتظار أول قصة عمل خير هنا." },
