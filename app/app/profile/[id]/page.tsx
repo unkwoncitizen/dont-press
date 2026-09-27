@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import StoryCard from '@/components/StoryCard'
-import { Story, User } from '@/lib/supabase'
+import ChainCard from '@/components/ChainCard'
+import { Story, User, Chain } from '@/lib/supabase'
 import { useLanguage } from '@/lib/LanguageContext'
 import Link from 'next/link'
 import { Home } from 'lucide-react'
@@ -17,6 +18,7 @@ export default function OtherProfilePage() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<User | null>(null)
   const [stories, setStories] = useState<Story[]>([])
+  const [createdChains, setCreatedChains] = useState<Chain[]>([])
   const [stats, setStats] = useState({
     totalChallenges: 0,
     completedChallenges: 0,
@@ -37,6 +39,7 @@ export default function OtherProfilePage() {
       loadProfile(profileId)
       loadStories(profileId)
       loadStats(profileId, session.user.id === profileId)
+      loadChains(profileId)
     }
     checkUser()
   }, [router, profileId])
@@ -67,6 +70,26 @@ export default function OtherProfilePage() {
 
     if (data) setStories(data || [])
     setLoading(false)
+  }
+
+  const loadChains = async (userId: string) => {
+    try {
+      // Only public chains are visible on someone else's profile.
+      const { data } = await supabase
+        .from('chains')
+        .select(`
+          *,
+          users:started_by_user_id (id, display_name, avatar_url)
+        `)
+        .eq('kind', 'goal')
+        .eq('started_by_user_id', userId)
+        .eq('visibility', 'public')
+        .order('created_at', { ascending: false })
+
+      if (data) setCreatedChains(data as unknown as Chain[])
+    } catch (error) {
+      console.error('Error loading chains:', error)
+    }
   }
 
   const loadStats = async (userId: string, isOwn: boolean) => {
@@ -223,6 +246,21 @@ export default function OtherProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Chains they started */}
+          {createdChains.length > 0 && (
+            <div className="mb-12">
+              <h2 className="text-2xl font-display font-bold text-warm-white mb-6 flex items-center gap-3">
+                <span>🎯</span>
+                {t('chains_i_created')}
+              </h2>
+              <div className="space-y-6">
+                {createdChains.map((chain) => (
+                  <ChainCard key={chain.id} chain={chain} showContinue={chain.status === 'active'} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Stories */}
           <div>
