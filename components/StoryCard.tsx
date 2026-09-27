@@ -1,6 +1,6 @@
 'use client'
 
-import { Heart, MessageCircle, Share2, Send, Check, Loader2, Trash2, MoreHorizontal, Shield } from 'lucide-react'
+import { Heart, MessageCircle, Share2, Send, Check, Loader2, Trash2, MoreHorizontal, Shield, Flag } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Story, supabase } from '@/lib/supabase'
 import Image from 'next/image'
@@ -48,6 +48,12 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showReport, setShowReport] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
+  const [isReporting, setIsReporting] = useState(false)
+  const [reportError, setReportError] = useState('')
+  const [reportSent, setReportSent] = useState(false)
   const { t, language } = useLanguage()
 
   // Get current user session
@@ -122,6 +128,48 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
 
   const isOwnStory = currentUserId !== null && story.user_id === currentUserId
   const canDelete = isOwnStory || canModerate
+  // Reporting your own post makes no sense, and the database rejects it too.
+  const canReport = currentUserId !== null && !isOwnStory
+
+  const REPORT_REASONS = [
+    { value: 'spam', label: t('report_reason_spam') },
+    { value: 'abuse', label: t('report_reason_abuse') },
+    { value: 'misinformation', label: t('report_reason_misinformation') },
+    { value: 'inappropriate', label: t('report_reason_inappropriate') },
+    { value: 'other', label: t('report_reason_other') },
+  ]
+
+  const handleReport = async () => {
+    if (isReporting || !reportReason) return
+    setIsReporting(true)
+    setReportError('')
+
+    try {
+      // onConflict makes a repeat report a no-op rather than a unique
+      // violation, so a double tap cannot surface an error.
+      const { error } = await supabase.from('story_reports').upsert(
+        {
+          story_id: story.id,
+          reporter_id: currentUserId,
+          reason: reportReason,
+          details: reportDetails.trim() || null,
+        },
+        { onConflict: 'story_id,reporter_id', ignoreDuplicates: true }
+      )
+
+      if (error) throw error
+
+      setReportSent(true)
+      setShowReport(false)
+      setReportReason('')
+      setReportDetails('')
+    } catch (err: any) {
+      console.error('Error reporting story:', err)
+      setReportError(err?.message || t('auth_generic_error'))
+    } finally {
+      setIsReporting(false)
+    }
+  }
 
   const handlePostComment = async () => {
     const trimmed = commentText.trim()
@@ -362,8 +410,8 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
           </div>
         )}
 
-        {/* Owner / moderator controls */}
-        {canDelete && (
+        {/* Owner / moderator / reporting controls */}
+        {(canDelete || canReport || reportSent) && (
           <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -408,13 +456,37 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
                       </div>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => setConfirmDelete(true)}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-coral-red hover:bg-coral-red/10 rounded-xl transition text-start"
-                    >
-                      <Trash2 size={15} />
-                      {isOwnStory ? t('delete_post') : t('moderate_remove_post')}
-                    </button>
+                    <>
+                      {canDelete && (
+                        <button
+                          onClick={() => setConfirmDelete(true)}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-coral-red hover:bg-coral-red/10 rounded-xl transition text-start"
+                        >
+                          <Trash2 size={15} />
+                          {isOwnStory ? t('delete_post') : t('moderate_remove_post')}
+                        </button>
+                      )}
+
+                      {canReport && !reportSent && (
+                        <button
+                          onClick={() => {
+                            setShowReport(true)
+                            setShowMenu(false)
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-warm-white/80 hover:bg-warm-white/10 rounded-xl transition text-start"
+                        >
+                          <Flag size={15} />
+                          {t('report_post')}
+                        </button>
+                      )}
+
+                      {reportSent && (
+                        <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-kindness-green">
+                          <Check size={15} />
+                          {t('report_sent')}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </>
@@ -422,6 +494,71 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
           </div>
         )}
       </div>
+
+      {/* Report form */}
+      {showReport && canReport && (
+        <div className="mb-4 p-4 rounded-2xl bg-warm-white/5 border border-warm-orange/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Flag size={15} className="text-warm-orange" />
+            <h3 className="font-semibold text-warm-white text-sm">{t('report_title')}</h3>
+          </div>
+
+          {reportError && (
+            <div className="bg-coral-red/20 border border-coral-red text-coral-red px-3 py-2 rounded-xl mb-3 text-xs">
+              {reportError}
+            </div>
+          )}
+
+          <p className="text-xs text-warm-white/60 mb-3">{t('report_hint')}</p>
+
+          <div className="space-y-2 mb-3">
+            {REPORT_REASONS.map((r) => (
+              <label
+                key={r.value}
+                className="flex items-center gap-2 text-sm text-warm-white/85 cursor-pointer"
+              >
+                <input
+                  type="radio"
+                  name={`reason-${story.id}`}
+                  value={r.value}
+                  checked={reportReason === r.value}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="w-3.5 h-3.5 accent-warm-orange"
+                />
+                {r.label}
+              </label>
+            ))}
+          </div>
+
+          <textarea
+            value={reportDetails}
+            onChange={(e) => setReportDetails(e.target.value)}
+            rows={2}
+            maxLength={500}
+            placeholder={t('report_details_placeholder')}
+            className="w-full bg-warm-white/5 border border-warm-white/10 rounded-xl px-3 py-2 text-sm text-warm-white focus:outline-none focus:border-warm-orange/50 resize-none mb-3"
+          />
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleReport}
+              disabled={!reportReason || isReporting}
+              className="flex-1 bg-warm-orange text-white text-xs font-semibold py-2 rounded-xl hover:bg-warm-orange/90 transition disabled:opacity-50"
+            >
+              {isReporting ? t('loading') : t('report_submit')}
+            </button>
+            <button
+              onClick={() => {
+                setShowReport(false)
+                setReportError('')
+              }}
+              className="flex-1 bg-warm-white/10 text-warm-white text-xs font-semibold py-2 rounded-xl hover:bg-warm-white/20 transition"
+            >
+              {t('cancel')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Story Content */}
       <div className="mb-4">
