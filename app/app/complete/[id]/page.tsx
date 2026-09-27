@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import { Camera, Upload } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useLanguage } from '@/lib/LanguageContext'
 
-export default function CompletePage({ params }: { params: { id: string } }) {
+export default function CompletePage() {
+  // Read the assignment id via the client hook rather than the `params` prop.
+  // Next 15 made `params` a Promise, which a client component cannot await during render.
+  const params = useParams<{ id: string }>()
   const [user, setUser] = useState<any>(null)
   const [assignment, setAssignment] = useState<any>(null)
   const [challenge, setChallenge] = useState<any>(null)
@@ -34,13 +37,16 @@ export default function CompletePage({ params }: { params: { id: string } }) {
   }, [])
 
   const loadAssignment = async () => {
+    const assignmentId = params?.id
+    if (!assignmentId) return
+
     const { data: assignmentData, error: assignmentError } = await supabase
       .from('challenge_assignments')
       .select(`
         *,
         challenges (*)
       `)
-      .eq('id', params.id)
+      .eq('id', assignmentId)
       .single()
 
     if (assignmentError) {
