@@ -13,21 +13,30 @@ export default function DiscoverPage() {
   const [user, setUser] = useState<any>(null)
   const [stories, setStories] = useState<Story[]>([])
   const [activeTab, setActiveTab] = useState<'inspiring' | 'recent' | 'chains'>('inspiring')
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const { t } = useLanguage()
 
   const loadStories = useCallback(async () => {
+    setLoading(true)
     try {
       let query = supabase
         .from('stories')
         .select(`
           *,
           users:user_id (id, email, display_name, avatar_url),
-          challenges:challenge_id (id, title, description, category, difficulty, estimated_time),
+          challenges:challenge_id!inner (id, title, description, category, difficulty, estimated_time),
           reactions (id, type, user_id, users:user_id (display_name)),
           comments (id, content, user_id, created_at, users:user_id (display_name))
         `)
+
+      // Filtering on the embedded challenge needs the !inner join above,
+      // otherwise the condition is applied after the rows are already joined
+      // and stories from every category come back.
+      if (activeCategory) {
+        query = query.eq('challenges.category', activeCategory)
+      }
 
       if (activeTab === 'inspiring') {
         query = query.order('created_at', { ascending: false })
@@ -46,7 +55,7 @@ export default function DiscoverPage() {
     } finally {
       setLoading(false)
     }
-  }, [activeTab])
+  }, [activeTab, activeCategory])
 
   useEffect(() => {
     const checkUser = async () => {
@@ -90,19 +99,39 @@ export default function DiscoverPage() {
             </p>
           </div>
 
-          {/* Categories Grid */}
+          {/* Categories Grid — acts as a filter over the stories below */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-            {categories.filter(c => c.id !== 'random').map((category) => (
-              <button
-                key={category.id}
-                className="card hover:scale-105 transition-transform text-center p-4"
-              >
-                <div className="text-4xl mb-2">{category.emoji}</div>
-                <div className="text-sm font-semibold text-warm-white">
-                  {getCategoryName(category.id)}
-                </div>
-              </button>
-            ))}
+            <button
+              onClick={() => setActiveCategory(null)}
+              aria-pressed={activeCategory === null}
+              className={`card text-center p-4 transition-all hover:scale-105 ${
+                activeCategory === null
+                  ? 'border-coral-red bg-coral-red/15'
+                  : 'hover:border-coral-red/50'
+              }`}
+            >
+              <div className="text-4xl mb-2">✨</div>
+              <div className="text-sm font-semibold text-warm-white">{t('filter_all')}</div>
+            </button>
+
+            {categories.filter(c => c.id !== 'random').map((category) => {
+              const isActive = activeCategory === category.id
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveCategory(isActive ? null : category.id)}
+                  aria-pressed={isActive}
+                  className={`card text-center p-4 transition-all hover:scale-105 ${
+                    isActive ? 'border-coral-red bg-coral-red/15' : 'hover:border-coral-red/50'
+                  }`}
+                >
+                  <div className="text-4xl mb-2">{category.emoji}</div>
+                  <div className="text-sm font-semibold text-warm-white">
+                    {getCategoryName(category.id)}
+                  </div>
+                </button>
+              )
+            })}
           </div>
 
           {/* Tabs */}
@@ -142,15 +171,31 @@ export default function DiscoverPage() {
           {/* Stories Grid */}
           {stories.length === 0 ? (
             <div className="card text-center py-12">
-              <p className="text-warm-white/50 mb-4">
-                {t('no_stories_found')}
-              </p>
-              <button
-                onClick={() => router.push('/app/press')}
-                className="btn-primary"
-              >
-                {t('be_the_first')}
-              </button>
+              {activeCategory ? (
+                <>
+                  <p className="text-warm-white/50 mb-4">
+                    {t('no_stories_in_category').replace('{cat}', getCategoryName(activeCategory))}
+                  </p>
+                  <button
+                    onClick={() => setActiveCategory(null)}
+                    className="btn-secondary"
+                  >
+                    {t('filter_all')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-warm-white/50 mb-4">
+                    {t('no_stories_found')}
+                  </p>
+                  <button
+                    onClick={() => router.push('/app/press')}
+                    className="btn-primary"
+                  >
+                    {t('be_the_first')}
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-6">

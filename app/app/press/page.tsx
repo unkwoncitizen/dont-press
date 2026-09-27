@@ -1,19 +1,37 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import { categories } from '@/lib/challenges-data'
 import { useLanguage } from '@/lib/LanguageContext'
 import { localizeChallenge } from '@/lib/challenge-translations'
 
+// useSearchParams opts the page out of static prerendering, so Next 15 requires
+// a Suspense boundary around it.
 export default function PressPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-primary-dark flex items-center justify-center">
+          <Loader2 size={24} className="animate-spin text-warm-white/50" />
+        </div>
+      }
+    >
+      <PressFlow />
+    </Suspense>
+  )
+}
+
+function PressFlow() {
   const [user, setUser] = useState<any>(null)
   const [step, setStep] = useState<'intro' | 'category' | 'challenge'>('intro')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [challenge, setChallenge] = useState<any>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t, language } = useLanguage()
 
   // Challenge copy lives in the database in English only, so it is translated
@@ -36,22 +54,48 @@ export default function PressPage() {
     setStep('category')
   }
 
-  const handleSelectCategory = async (categoryId: string) => {
-    setSelectedCategory(categoryId)
+  const handleSelectCategory = useCallback(async (categoryId: string) => {
+    // "random" has no challenges of its own in the database, so resolve it to
+    // a real category instead of matching nothing and dead-ending.
+    const effectiveId =
+      categoryId === 'random'
+        ? categories.filter((c) => c.id !== 'random')[Math.floor(Math.random() * (categories.length - 1))].id
+        : categoryId
+
+    setSelectedCategory(effectiveId)
 
     // Get random challenge from category
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('challenges')
       .select('*')
-      .eq('category', categoryId)
+      .eq('category', effectiveId)
       .eq('active', true)
 
     if (data && data.length > 0) {
       const randomChallenge = data[Math.floor(Math.random() * data.length)]
       setChallenge(randomChallenge)
       setStep('challenge')
+    } else {
+      // Nothing in this category; put the user back on the chooser.
+      setStep('category')
     }
-  }
+  }, [])
+
+  // A category chosen on the landing page (or carried through signup) starts the
+  // flow immediately instead of making the user pick again. Declared after
+  // handleSelectCategory so it is defined before the dependency array reads it,
+  // and guarded by a ref so StrictMode's double-invoke cannot fire twice.
+  const handledCategory = useRef<string | null>(null)
+  useEffect(() => {
+    const requested = searchParams.get('category')
+    if (!requested) return
+    if (!categories.some((c) => c.id === requested)) return
+    if (!user) return
+    if (handledCategory.current === requested) return
+
+    handledCategory.current = requested
+    handleSelectCategory(requested)
+  }, [searchParams, user, handleSelectCategory])
 
   const handleAcceptChallenge = async () => {
     if (!user || !challenge) return

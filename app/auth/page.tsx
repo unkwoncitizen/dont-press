@@ -1,12 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Loader2 } from 'lucide-react'
 import { useLanguage, LanguageToggle } from '@/lib/LanguageContext'
 
+// useSearchParams opts the page out of static prerendering, so Next 15 requires
+// a Suspense boundary around it.
 export default function AuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-primary-dark flex items-center justify-center">
+          <Loader2 size={24} className="animate-spin text-warm-white/50" />
+        </div>
+      }
+    >
+      <AuthForm />
+    </Suspense>
+  )
+}
+
+function AuthForm() {
+  const searchParams = useSearchParams()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,6 +38,12 @@ export default function AuthPage() {
 
   // Supabase falls back to the project's Site URL when this is omitted, which
   // is why confirmation links must be pinned to the current origin.
+  // Preserves the visitor's intent when they arrive from a category card on
+  // the landing page, e.g. /auth?next=%2Fapp%2Fpress%3Fcategory%3Dcommunity
+  const nextPath = searchParams.get('next')
+  const safeNext =
+    nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/app'
+
   const getRedirectTo = () => `${window.location.origin}/app`
 
   const handleResetRequest = async (e: React.FormEvent) => {
@@ -61,7 +85,7 @@ export default function AuthPage() {
 
         // When email confirmation is disabled, signUp returns a session directly.
         if (data.session) {
-          router.push('/app')
+          router.push(safeNext)
           return
         }
 
@@ -72,7 +96,7 @@ export default function AuthPage() {
           password,
         })
         if (error) throw error
-        router.push('/app')
+        router.push(safeNext)
       }
     } catch (error: any) {
       setError(friendlyAuthError(error))

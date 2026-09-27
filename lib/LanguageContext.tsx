@@ -156,6 +156,9 @@ export const translations: Translations = {
   tab_recent_stories: { en: "✨ Recent Stories", ar: "✨ أحدث القصص" },
   tab_active_chains: { en: "🔥 Active Chains", ar: "🔥 السلاسل النشطة" },
   no_stories_found: { en: "No stories found yet.", ar: "لم يتم العثور على قصص بعد." },
+  filter_all: { en: "All", ar: "الكل" },
+  no_stories_in_category: { en: "No stories in {cat} yet.", ar: "لا توجد قصص في {cat} بعد." },
+  choose_path_cta: { en: "Start here", ar: "ابدأ من هنا" },
 
   // Profile page
   // The Arabic here previously said "leave a good impression wherever you go",
