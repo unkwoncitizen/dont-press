@@ -13,12 +13,34 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
+  const [showForgot, setShowForgot] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
   const router = useRouter()
   const { t } = useLanguage()
 
   // Supabase falls back to the project's Site URL when this is omitted, which
   // is why confirmation links must be pinned to the current origin.
   const getRedirectTo = () => `${window.location.origin}/app`
+
+  const handleResetRequest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email.trim()) return
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      })
+      if (error) throw error
+      setResetSent(true)
+    } catch (err: any) {
+      setError(friendlyAuthError(err))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -107,13 +129,72 @@ export default function AuthPage() {
         {/* Auth Card */}
         <div className="card">
           <h2 className="text-2xl font-bold text-warm-white mb-6">
-            {isSignUp ? t('auth_create') : t('auth_welcome')}
+            {showForgot
+              ? t('auth_forgot_title')
+              : isSignUp
+              ? t('auth_create')
+              : t('auth_welcome')}
           </h2>
 
           {error && (
             <div className="bg-coral-red/20 border border-coral-red text-coral-red px-4 py-3 rounded-xl mb-4 text-sm">
               {error}
             </div>
+          )}
+
+          {/* Forgot password: request a recovery link */}
+          {showForgot && (
+            <>
+              {resetSent ? (
+                <div className="bg-kindness-green/15 border border-kindness-green/50 text-warm-white px-4 py-4 rounded-xl mb-4 text-sm">
+                  <div className="font-semibold mb-1">{t('auth_reset_sent')}</div>
+                  <div className="text-warm-white/70 text-xs leading-relaxed">
+                    {t('auth_check_email_hint')}{' '}
+                    <span className="text-warm-white font-semibold break-all">{email}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-warm-white/60 text-sm mb-4">{t('auth_forgot_hint')}</p>
+              )}
+
+              {!resetSent && (
+                <form onSubmit={handleResetRequest} className="space-y-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-warm-white mb-2">
+                      {t('auth_email')}
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                      className="w-full bg-warm-white/5 border border-warm-white/10 rounded-xl px-4 py-3 text-warm-white focus:outline-none focus:border-coral-red/50"
+                      placeholder="your@email.com"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-coral-red text-white px-6 py-3 rounded-xl font-semibold hover:bg-coral-red/90 transition disabled:opacity-50"
+                  >
+                    {loading ? t('loading') : t('auth_send_reset')}
+                  </button>
+                </form>
+              )}
+
+              <button
+                onClick={() => {
+                  setShowForgot(false)
+                  setResetSent(false)
+                  setError('')
+                }}
+                className="text-sm text-coral-red font-semibold hover:underline"
+              >
+                {t('auth_back_to_signin')}
+              </button>
+            </>
           )}
 
           {pendingEmail && (
@@ -137,7 +218,7 @@ export default function AuthPage() {
           )}
 
           {/* Email/Password Form */}
-          {!pendingEmail && (
+          {!pendingEmail && !showForgot && (
           <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
             <div>
               <label className="block text-sm font-semibold text-warm-white mb-2">
@@ -175,11 +256,24 @@ export default function AuthPage() {
             >
               {loading ? t('loading') : isSignUp ? t('nav_signup') : t('nav_signin')}
             </button>
+
+            {!isSignUp && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgot(true)
+                  setError('')
+                }}
+                className="w-full text-center text-sm text-warm-white/50 hover:text-coral-red transition"
+              >
+                {t('auth_forgot_link')}
+              </button>
+            )}
           </form>
           )}
 
           {/* Divider */}
-          {!pendingEmail && (
+          {!pendingEmail && !showForgot && (
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-warm-white/10"></div>
@@ -193,7 +287,7 @@ export default function AuthPage() {
           )}
 
           {/* Social Auth */}
-          {!pendingEmail && (
+          {!pendingEmail && !showForgot && (
           <button
             onClick={handleGoogleAuth}
             className="w-full bg-warm-white text-primary-dark px-6 py-3 rounded-xl font-semibold hover:bg-warm-white/90 transition flex items-center justify-center gap-2 mb-4"
@@ -221,7 +315,7 @@ export default function AuthPage() {
           )}
 
           {/* Toggle Sign In/Up */}
-          {!pendingEmail && (
+          {!pendingEmail && !showForgot && (
           <div className="text-center text-sm text-warm-white/60">
             {isSignUp ? t('auth_have_account') : t('auth_no_account')}{' '}
             <button
