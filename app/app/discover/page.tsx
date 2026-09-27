@@ -25,7 +25,7 @@ export default function DiscoverPage() {
         .from('stories')
         .select(`
           *,
-          users:user_id (id, email, display_name, avatar_url),
+          users:user_id (id, display_name, avatar_url),
           challenges:challenge_id!inner (id, title, description, category, difficulty, estimated_time),
           reactions (id, type, user_id, users:user_id (display_name)),
           comments (id, content, user_id, created_at, users:user_id (display_name))

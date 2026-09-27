@@ -47,7 +47,7 @@ export default function OtherProfilePage() {
   const loadProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from('users')
-      .select('*')
+      .select('id, username, display_name, bio, avatar_url, created_at, updated_at')
       .eq('id', userId)
       .single()
 
@@ -59,7 +59,7 @@ export default function OtherProfilePage() {
       .from('stories')
       .select(`
         *,
-        users:user_id (id, email, display_name, avatar_url),
+        users:user_id (id, display_name, avatar_url),
         challenges:challenge_id (id, title, description, category, difficulty, estimated_time),
         reactions (id, type, user_id, users:user_id (display_name)),
         comments (id, content, user_id, created_at, users:user_id (display_name))
@@ -163,7 +163,9 @@ export default function OtherProfilePage() {
     )
   }
 
-  const userName = profile.display_name || profile.email?.split('@')[0] || t('user')
+  // Never fall back to another user's email address: the public users table no
+  // longer exposes it, and showing it would defeat the point of hiding it.
+  const userName = profile.display_name || t('user')
   const userInitial = userName[0] || 'U'
   const gradient = [
     'from-coral-red to-warm-orange',

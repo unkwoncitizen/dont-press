@@ -43,7 +43,7 @@ export default function ProfilePage() {
   const loadProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from('users')
-      .select('*')
+      .select('id, username, display_name, bio, avatar_url, created_at, updated_at')
       .eq('id', userId)
       .single()
 

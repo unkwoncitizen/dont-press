@@ -8,7 +8,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // Types for our database
 export interface User {
   id: string
-  email: string
+  // Only present for the signed-in user, read from the auth session. The public
+  // `users` table does not expose email: see supabase-users-privacy.sql.
+  email?: string
   created_at: string
   username?: string
   display_name?: string
