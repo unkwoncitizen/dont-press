@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { Story, supabase } from '@/lib/supabase'
 import Image from 'next/image'
 import { useLanguage } from '@/lib/LanguageContext'
+import { localizeChallenge } from '@/lib/challenge-translations'
 import Link from 'next/link'
 
 interface StoryCardProps {
@@ -84,6 +85,7 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
   const userName = story.is_anonymous ? t('anonymous') : story.users?.display_name || t('user')
   const userInitial = story.is_anonymous ? '?' : userName[0] || 'U'
   const gradient = getGradient(userName)
+  const localizedChallenge = localizeChallenge(story.challenges, language)
 
   const handlePostComment = async () => {
     const trimmed = commentText.trim()
@@ -348,9 +350,9 @@ export default function StoryCard({ story, onInspire, onComment }: StoryCardProp
       {story.challenges && (
         <div className="mb-4 p-4 bg-warm-white/5 rounded-xl border border-warm-white/10">
           <div className="text-sm text-warm-white/70 mb-1">{t('challenge_label')}</div>
-          <div className="font-semibold">{story.challenges.title}</div>
+          <div className="font-semibold">{localizedChallenge.title}</div>
           <div className="text-sm text-warm-white/60 mt-1">
-            ⏱ {story.challenges.estimated_time} • {story.challenges.difficulty}
+            ⏱ {localizedChallenge.estimatedTime} • {localizedChallenge.difficulty}
           </div>
         </div>
       )}

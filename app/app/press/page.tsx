@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Navigation from '@/components/Navigation'
 import { categories } from '@/lib/challenges-data'
 import { useLanguage } from '@/lib/LanguageContext'
+import { localizeChallenge } from '@/lib/challenge-translations'
 
 export default function PressPage() {
   const [user, setUser] = useState<any>(null)
@@ -13,7 +14,11 @@ export default function PressPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [challenge, setChallenge] = useState<any>(null)
   const router = useRouter()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
+
+  // Challenge copy lives in the database in English only, so it is translated
+  // in the client rather than rendered raw.
+  const localized = localizeChallenge(challenge, language)
 
   useEffect(() => {
     const checkUser = async () => {
@@ -172,20 +177,20 @@ export default function PressPage() {
                 <div className="border-t border-b border-warm-white/20 py-8 mb-8">
                   <p className="text-warm-white/50 text-sm mb-4">{t('your_challenge')}</p>
                   <h3 className="text-2xl md:text-3xl font-bold text-warm-white mb-4">
-                    {challenge.title}
+                    {localized.title}
                   </h3>
                   <p className="text-lg text-warm-white/80 leading-relaxed">
-                    {challenge.description}
+                    {localized.description}
                   </p>
                 </div>
 
                 {/* Challenge Details */}
                 <div className="flex flex-wrap items-center justify-center gap-4 mb-8 text-sm text-warm-white/60">
                   <span className="flex items-center gap-1">
-                    ⏱ {challenge.estimated_time}
+                    ⏱ {localized.estimatedTime}
                   </span>
                   <span className="flex items-center gap-1">
-                    📊 {challenge.difficulty}
+                    📊 {localized.difficulty}
                   </span>
                   {challenge.requires_other_person && (
                     <span className="flex items-center gap-1">

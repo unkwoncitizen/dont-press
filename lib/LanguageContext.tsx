@@ -18,10 +18,10 @@ export const translations: Translations = {
   dont_press_hero_1: { en: "DON'T", ar: "لا" },
   dont_press_hero_2: { en: "PRESS", ar: "تضغط" },
   tagline: { en: "One press. One challenge. One good deed.", ar: "ضغطة واحدة. تحدٍّ واحد. عمل خير واحد." },
-  tagline_sub: { en: "A social network where one small action can start a chain of good.", ar: "شبكة اجتماعية حيث يمكن لعمل بسيط أن يبدأ سلسلة من الخير." },
+  tagline_sub: { en: "A social network where one small action can start a chain of good.", ar: "شبكة اجتماعية يبدأ فيها العمل الصغير الواحد سلسلةً من الخير." },
   pressed_today: { en: "18,421 people pressed today", ar: "18,421 شخص ضغطوا اليوم" },
   after_press_note: { en: "What happens after the press is up to you.", ar: "ما يحدث بعد الضغط يعود إليك." },
-  you_know_you_want: { en: "You know you want to...", ar: "أنت تعلم أنك تريد التجربة..." },
+  you_know_you_want: { en: "You know you want to...", ar: "أنت تعرف أنك تريد..." },
   start_first_challenge: { en: "Start your first challenge", ar: "ابدأ تحديك الأول" },
   start_a_chain: { en: "Start a chain", ar: "ابدأ سلسلة" },
   be_the_first: { en: "Be the first", ar: "كن أول المبادرين" },
@@ -106,11 +106,11 @@ export const translations: Translations = {
 
   // Feed / StoryCard
   people_who_pressed: { en: "People who pressed", ar: "أشخاص ضغطوا على الزر" },
-  no_stories_feed: { en: "The world is waiting for its first good deed.", ar: "العالم بانتظار أول قصة عمل خير هنا." },
-  inspire: { en: "Inspire", ar: "ألهمني" },
+  no_stories_feed: { en: "The world is waiting for its first good deed.", ar: "العالم بانتظار أول عمل خير." },
+  inspire: { en: "Inspire", ar: "أُلهم" },
   pass_it_on: { en: "Pass it on", ar: "مررها للغير" },
-  add_comment_placeholder: { en: "Add a comment (press Enter)...", ar: "أضف تعليقاً (اضغط Enter)..." },
-  post_comment: { en: "Post", ar: "نشر" },
+  add_comment_placeholder: { en: "Add a comment (press Enter)...", ar: "أضف تعليقاً (اضغط إدخال)..." },
+  post_comment: { en: "Post", ar: "أضف التعليق" },
   posting_comment: { en: "...", ar: "..." },
   anonymous: { en: "Anonymous", ar: "مجهول" },
   user: { en: "User", ar: "مستخدم" },
@@ -123,9 +123,9 @@ export const translations: Translations = {
   // Press flow
   you_pressed_it: { en: "You pressed it.", ar: "لقد ضغطت على الزر." },
   no_going_back: { en: "There is no going back.", ar: "لا مجال للتراجع الآن." },
-  choose_challenge_title: { en: "Choose your challenge.", ar: "اختر فئة التحدي الخاص بك." },
-  you_chose: { en: "YOU CHOSE", ar: "اخترت فئة" },
-  your_challenge: { en: "YOUR CHALLENGE", ar: "تحديك هو" },
+  choose_challenge_title: { en: "Choose your challenge.", ar: "اختر فئة التحدي." },
+  you_chose: { en: "YOU CHOSE", ar: "اخترت" },
+  your_challenge: { en: "YOUR CHALLENGE", ar: "تحديك" },
   accept: { en: "ACCEPT", ar: "قبول التحدي" },
   pass: { en: "PASS", ar: "تمرير التحدي" },
   pass_note: { en: "Not for you? That's okay. Pass it on to someone else.", ar: "غير مناسب لك؟ لا مشكلة، يمكنك تمريره لشخص آخر." },
@@ -158,11 +158,13 @@ export const translations: Translations = {
   no_stories_found: { en: "No stories found yet.", ar: "لم يتم العثور على قصص بعد." },
 
   // Profile page
-  default_bio: { en: "Try to leave people better than you found them.", ar: "اترك أثراً طيباً في كل مكان تحل به." },
+  // The Arabic here previously said "leave a good impression wherever you go",
+  // which is a different idea from leaving people better than you found them.
+  default_bio: { en: "Try to leave people better than you found them.", ar: "حاول أن تترك الناس أفضل مما وجدتهم." },
   stat_good_deeds: { en: "Good Deeds", ar: "أعمال الخير" },
   stat_challenges: { en: "Challenges", ar: "التحديات" },
   stat_chains: { en: "Chains", ar: "السلاسل" },
-  stat_inspired: { en: "Inspired", ar: "أشخاص أُلهموا" },
+  stat_inspired: { en: "Inspired", ar: "أُلهموا" },
   your_stories: { en: "Your Stories", ar: "قصصك ومشاركاتك" },
   no_stories_profile: { en: "You haven't shared any stories yet.", ar: "لم تقم بمشاركة أي قصة بعد." },
 
@@ -174,8 +176,9 @@ export const translations: Translations = {
   back_to_feed: { en: "Back to Feed", ar: "العودة للقائمة" },
   edit_profile: { en: "Edit Profile", ar: "تعديل الحساب" },
 
-  // Chains page
-  your_chains: { en: "Your Chains", ar: "سلاسلك" },
+  // "سلاسلك" literally reads as "your chains" (as in restraints), so this
+  // frames them as chains of goodness instead.
+  your_chains: { en: "Your Chains", ar: "سلاسل الخير" },
   chains_subtitle: { en: "Every good deed can start a chain reaction", ar: "كل عمل خير يمكن أن يطلق سلسلة تفاعلية من الإحسان" },
   first_chain_start: { en: "Your first chain could start here.", ar: "سلسلتك الأولى يمكن أن تبدأ من هنا." },
   chain_number: { en: "Chain #", ar: "سلسلة رقم #" },

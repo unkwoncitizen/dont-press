@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation'
 import { Camera, Upload } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useLanguage } from '@/lib/LanguageContext'
+import { localizeChallenge } from '@/lib/challenge-translations'
 
 export default function CompletePage() {
   // Read the assignment id via the client hook rather than the `params` prop.
@@ -21,7 +22,8 @@ export default function CompletePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
+  const localizedChallenge = localizeChallenge(challenge, language)
 
   const loadAssignment = useCallback(async () => {
     const assignmentId = params?.id
@@ -166,9 +168,9 @@ export default function CompletePage() {
           <div className="card mb-8">
             <div className="text-sm text-warm-white/50 mb-2">{t('challenge_label')}</div>
             <h2 className="text-2xl font-bold text-warm-white mb-2">
-              {challenge.title}
+              {localizedChallenge.title}
             </h2>
-            <p className="text-warm-white/70">{challenge.description}</p>
+            <p className="text-warm-white/70">{localizedChallenge.description}</p>
           </div>
 
           {/* Story Form */}
