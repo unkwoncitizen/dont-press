@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Navigation from '@/components/Navigation'
@@ -23,20 +23,7 @@ export default function CompletePage() {
   const router = useRouter()
   const { t } = useLanguage()
 
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth')
-        return
-      }
-      setUser(session.user)
-      loadAssignment()
-    }
-    checkUser()
-  }, [])
-
-  const loadAssignment = async () => {
+  const loadAssignment = useCallback(async () => {
     const assignmentId = params?.id
     if (!assignmentId) return
 
@@ -56,7 +43,20 @@ export default function CompletePage() {
 
     setAssignment(assignmentData)
     setChallenge(assignmentData.challenges)
-  }
+  }, [params])
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/auth')
+        return
+      }
+      setUser(session.user)
+      loadAssignment()
+    }
+    checkUser()
+  }, [router, loadAssignment])
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -203,6 +203,9 @@ export default function CompletePage() {
 
               {photoPreview ? (
                 <div className="relative rounded-xl overflow-hidden mb-3">
+                  {/* Local preview from FileReader.readAsDataURL. next/image
+                      cannot optimize data: URLs, so <img> is correct here. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={photoPreview} alt="Preview" className="w-full h-auto" />
                   <button
                     type="button"
