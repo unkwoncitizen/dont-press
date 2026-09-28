@@ -46,11 +46,23 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  -- Deliberately awkward on purpose. The caller has to have the id in front of
-  -- them, which is exactly the state a mis-click is not in.
-  IF p_confirm IS DISTINCT FROM p_story_id::text THEN
+  -- Confirmation is a fixed word, not the post id.
+  --
+  -- This was originally p_confirm = p_story_id, which read like a strong check
+  -- but was not one: the client always has the id in hand and passes it
+  -- automatically, so a mis-click satisfied it without the moderator typing
+  -- anything. A constant phrase is a better fit for what this gate is actually
+  -- for, which is catching a stray or automated call rather than a deliberate
+  -- one.
+  --
+  -- Being honest about the division of labour: the protection against a
+  -- mis-click is the confirmation panel in the admin UI, not this. What protects
+  -- the data is that only moderators can call this at all, and that the
+  -- mass-purge guard below refuses to remove more than one post per statement.
+  -- This check is the third layer, not the load-bearing one.
+  IF upper(trim(COALESCE(p_confirm, ''))) <> 'YES' THEN
     RAISE EXCEPTION
-      'Confirmation did not match the post id. Nothing was deleted. A post id looks like 00000000-0000-0000-0000-000000000000.'
+      'Confirmation was not YES. Nothing was deleted.'
       USING ERRCODE = '22023';
   END IF;
 

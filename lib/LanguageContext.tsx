@@ -98,7 +98,7 @@ export const translations: Translations = {
   restore_post: { en: "Restore", ar: "استعادة" },
   purge_permanently: { en: "Delete permanently", ar: "حذف نهائي" },
   confirm_purge: { en: "Delete permanently? This also destroys every comment on it. This cannot be undone.", ar: "حذف نهائي؟ سيؤدي أيضاً إلى إتلاف كل التعليقات. لا يمكن التراجع." },
-  purge_type_id: { en: "Type the post ID below to confirm:", ar: "اكتب معرّف المنشور لتأكيد الحذف:" },
+  purge_type_yes: { en: "Type YES to confirm:", ar: "اكتب YES للتأكيد:" },
 
   // Automatic content check
   moderation_unavailable: { en: "Posting is temporarily unavailable. Please try again later.", ar: "النشر غير متاح مؤقتاً. حاول مرة أخرى لاحقاً." },

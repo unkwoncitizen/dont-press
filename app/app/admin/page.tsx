@@ -483,17 +483,22 @@ export default function AdminPage() {
     }
   }
 
-  // Permanent deletion is the one action here that cannot be undone, so it is
-  // deliberately awkward: a typed confirmation naming the exact post, and the
-  // delete itself goes through purge_story() rather than straight to PostgREST.
-  // The database also refuses a bare DELETE now, so this is belt and braces on
-  // top of a server-side gate rather than the only thing standing in the way.
+  // Permanent deletion is the one action here that cannot be undone, so it asks
+  // for a typed confirmation and goes through purge_story() rather than straight
+  // to PostgREST. The word is a fixed YES rather than the post id: the id check
+  // looked stricter but was not, because this code has the id in hand and passed
+  // it automatically, so a mis-click satisfied it without the moderator typing
+  // anything. Case and surrounding whitespace are ignored, because being fussy
+  // about "yes" trains people to paste confirmation words without reading them.
+  const PURGE_CONFIRM_WORD = 'YES'
   const [purgeTarget, setPurgeTarget] = useState<string | null>(null)
   const [purgeConfirm, setPurgeConfirm] = useState('')
   const [purgeError, setPurgeError] = useState('')
 
+  const purgeConfirmed = purgeConfirm.trim().toUpperCase() === PURGE_CONFIRM_WORD
+
   const purge = async (id: string) => {
-    if (purgeConfirm.trim() !== id) return
+    if (!purgeConfirmed) return
     setBusyId(id)
     setPurgeError('')
     try {
@@ -501,6 +506,7 @@ export default function AdminPage() {
         p_story_id: id,
         p_confirm: purgeConfirm.trim(),
       })
+      if (error) throw error
       if (error) throw error
       setPurgeTarget(null)
       setPurgeConfirm('')
@@ -999,57 +1005,84 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Permanent-delete confirmation. Requires the exact post id typed
-              out, so it cannot be reached by a stray click. */}
-          {purgeTarget && (
-            <div className="card border-coral-red/40 bg-coral-red/5 mt-6">
-              <h3 className="text-base font-display font-bold text-coral-red mb-2">
-                {t('purge_permanently')}
-              </h3>
-              <p className="text-warm-white/60 text-sm mb-4">
-                {t('confirm_purge')}
-              </p>
-              <label className="block text-warm-white/50 text-xs mb-2" htmlFor="purge-confirm">
-                {t('purge_type_id')}
-              </label>
-              <input
-                id="purge-confirm"
-                type="text"
-                value={purgeConfirm}
-                onChange={(e) => setPurgeConfirm(e.target.value)}
-                placeholder={purgeTarget}
-                spellCheck={false}
-                autoComplete="off"
-                className="w-full px-3 py-2 rounded-lg bg-primary-dark/60 border border-coral-red/30 text-warm-white text-sm font-mono focus:outline-none focus:border-coral-red/60"
-              />
-              <p className="text-warm-white/40 text-xs mt-2 font-mono break-all">
-                {purgeTarget}
-              </p>
-              {purgeError && (
-                <p className="text-coral-red text-sm mt-3">{purgeError}</p>
-              )}
-              <div className="flex items-center gap-2 mt-4">
-                <button
-                  onClick={() => purge(purgeTarget)}
-                  disabled={busyId === purgeTarget || purgeConfirm.trim() !== purgeTarget}
-                  className="btn-primary text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <Trash2 size={14} />
+          {/* Permanent-delete confirmation. Shows the post being destroyed, so
+              the moderator is confirming a thing they can see rather than a
+              thing they remember. The post id stays visible but is no longer
+              something to type out. */}
+          {purgeTarget && (() => {
+            const target = stories.find((s) => s.id === purgeTarget) || deleted.find((s) => s.id === purgeTarget)
+            return (
+              <div className="card border-coral-red/40 bg-coral-red/5 mt-6">
+                <h3 className="text-base font-display font-bold text-coral-red mb-2">
                   {t('purge_permanently')}
-                </button>
-                <button
-                  onClick={() => {
-                    setPurgeTarget(null)
-                    setPurgeConfirm('')
-                    setPurgeError('')
+                </h3>
+                <p className="text-warm-white/60 text-sm mb-4">
+                  {t('confirm_purge')}
+                </p>
+
+                {target && (
+                  <div className="bg-primary-dark/50 border border-coral-red/20 rounded-lg p-3 mb-4">
+                    <p className="text-xs text-warm-white/50 mb-1">
+                      @{target.users?.username || target.users?.display_name || t('user')}
+                    </p>
+                    <p className="text-sm text-warm-white/85 whitespace-pre-wrap break-words">
+                      {target.content.length > 200
+                        ? target.content.slice(0, 200) + '…'
+                        : target.content}
+                    </p>
+                    <p className="text-[11px] text-warm-white/30 mt-2 font-mono break-all">
+                      {target.id}
+                    </p>
+                  </div>
+                )}
+
+                <label className="block text-warm-white/50 text-xs mb-2" htmlFor="purge-confirm">
+                  {t('purge_type_yes')}
+                </label>
+                <input
+                  id="purge-confirm"
+                  type="text"
+                  value={purgeConfirm}
+                  onChange={(e) => setPurgeConfirm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && purgeConfirmed && busyId !== purgeTarget) {
+                      purge(purgeTarget)
+                    }
                   }}
-                  className="btn-secondary text-sm"
-                >
-                  {t('cancel')}
-                </button>
+                  placeholder={PURGE_CONFIRM_WORD}
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  className="w-full px-3 py-2 rounded-lg bg-primary-dark/60 border border-coral-red/30 text-warm-white text-sm font-mono focus:outline-none focus:border-coral-red/60"
+                />
+
+                {purgeError && (
+                  <p className="text-coral-red text-sm mt-3">{purgeError}</p>
+                )}
+
+                <div className="flex items-center gap-2 mt-4">
+                  <button
+                    onClick={() => purge(purgeTarget)}
+                    disabled={busyId === purgeTarget || !purgeConfirmed}
+                    className="btn-primary text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 size={14} />
+                    {t('purge_permanently')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPurgeTarget(null)
+                      setPurgeConfirm('')
+                      setPurgeError('')
+                    }}
+                    className="btn-secondary text-sm"
+                  >
+                    {t('cancel')}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       </main>
     </div>
