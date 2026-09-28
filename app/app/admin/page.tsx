@@ -77,6 +77,9 @@ interface ModReview {
   story_content?: string
   story_photo?: string | null
   chain_title?: string | null
+  // True when the reviewed post or chain no longer exists, so the card can say
+  // so instead of rendering an empty preview.
+  content_missing?: boolean
 }
 
 export default function AdminPage() {
@@ -174,14 +177,18 @@ export default function AdminPage() {
         .order('started_at', { ascending: false })
         .limit(100),
 
+      // No embed of the reviewed content here. content_id is a polymorphic
+      // reference: it points at stories, chains or comments depending on
+      // content_type, and carries no foreign key to any of them. PostgREST can
+      // only follow real relationships, so `stories:content_id (...)` fails
+      // resolution and takes the entire query down with it, which is why the
+      // Pending tab rendered empty with an error rather than showing anything.
+      // The content is fetched separately below, once the ids are known.
       supabase
         .from('moderation_reviews')
         .select(`
           id, content_type, content_id, reason, categories, created_at, user_id,
-          users:user_id (id, username, display_name),
-          stories:content_id (
-            id, content, photo_url
-          )
+          users:user_id (id, username, display_name)
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: true })
@@ -265,9 +272,33 @@ export default function AdminPage() {
     }
 
     if (reviewsRes.data) {
+      // The reviewed content is fetched by id now, keyed off content_type, since
+      // it cannot be embedded. Guarded on the rows actually existing: content
+      // can be deleted between a review being raised and it being opened, and
+      // that should degrade to a review row with no preview, not an error
+      // banner that hides the whole queue.
+      const rows = reviewsRes.data as any[]
+      const storyIds = rows.filter((r) => r.content_type === 'story').map((r) => r.content_id)
+      const chainIds = rows.filter((r) => r.content_type === 'chain').map((r) => r.content_id)
+
+      const [storyRes, chainRes] = await Promise.all([
+        storyIds.length
+          ? supabase.from('stories').select('id, content, photo_url').in('id', storyIds)
+          : Promise.resolve({ data: [], error: null }),
+        chainIds.length
+          ? supabase.from('chains').select('id, title, description, image_url').in('id', chainIds)
+          : Promise.resolve({ data: [], error: null }),
+      ])
+
+      const storyById = new Map<string, any>()
+      for (const s of (storyRes.data as any[]) || []) storyById.set(s.id, s)
+      const chainById = new Map<string, any>()
+      for (const c of (chainRes.data as any[]) || []) chainById.set(c.id, c)
+
       setReviews(
-        (reviewsRes.data as any[]).map((r) => {
-          const story = Array.isArray(r.stories) ? r.stories[0] : r.stories
+        rows.map((r) => {
+          const story = r.content_type === 'story' ? storyById.get(r.content_id) : null
+          const chain = r.content_type === 'chain' ? chainById.get(r.content_id) : null
           return {
             id: r.id,
             content_type: r.content_type,
@@ -277,8 +308,11 @@ export default function AdminPage() {
             created_at: r.created_at,
             user_id: r.user_id,
             author: r.users?.display_name || r.users?.username || t('user'),
-            story_content: story?.content || '',
-            story_photo: story?.photo_url || null,
+            story_content: story?.content || chain?.description || '',
+            story_photo: story?.photo_url || chain?.image_url || null,
+            // No preview can mean the content is gone, which is worth saying
+            // rather than showing an empty card that looks like a bug.
+            content_missing: r.content_type === 'story' ? !story : !chain,
           }
         })
       )
@@ -636,11 +670,15 @@ export default function AdminPage() {
                       />
                     )}
 
-                    {r.story_content && (
+                    {r.content_missing ? (
+                      <p className="text-warm-white/50 text-sm mb-4 italic">
+                        {t('review_content_missing')}
+                      </p>
+                    ) : r.story_content ? (
                       <p className="text-warm-white/80 text-sm mb-4 whitespace-pre-wrap break-words">
                         {r.story_content}
                       </p>
-                    )}
+                    ) : null}
 
                     <div className="flex items-center gap-2">
                       <button

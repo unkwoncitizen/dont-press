@@ -107,6 +107,7 @@ export const translations: Translations = {
   post_pending_body: { en: "Something in it needs a quick check by our team, so it is not in the feed yet. You will see it here as soon as it is approved.", ar: "يحتوي على شيء يحتاج إلى مراجعة سريعة من فريقنا، لذلك لم يظهر في القائمة بعد. ستراه هنا بمجرد الموافقة عليه." },
   tab_pending: { en: "Pending", ar: "قيد المراجعة" },
   admin_nothing_pending: { en: "Nothing waiting for review.", ar: "لا يوجد شيء بانتظار المراجعة." },
+  review_content_missing: { en: "This content no longer exists. Rejecting it will just clear the queue.", ar: "لم يعد هذا المحتوى موجوداً. الرفض سيزيله من القائمة فقط." },
   approve: { en: "Approve", ar: "موافقة" },
   reject: { en: "Reject", ar: "رفض" },
 
