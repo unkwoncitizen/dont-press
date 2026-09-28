@@ -18,6 +18,7 @@ export default function ChainsPage() {
   const [created, setCreated] = useState<Chain[]>([])
   const [joined, setJoined] = useState<Chain[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const router = useRouter()
   const { t } = useLanguage()
@@ -33,13 +34,20 @@ export default function ChainsPage() {
         .eq('kind', 'goal')
         .eq('visibility', 'public')
         .eq('status', 'active')
-        .order('created_at', { ascending: false })
+        // chains has no created_at. The column is started_at, and ordering by
+        // the wrong one makes PostgREST reject the whole query, which is what
+        // made this page look permanently empty.
+        .order('started_at', { ascending: false })
         .limit(30)
 
       if (error) throw error
       setChains(data || [])
-    } catch (error) {
+      setLoadError(null)
+    } catch (error: any) {
+      // Surfaced rather than swallowed: a failing query and a genuinely empty
+      // list look identical on screen, and that is how this hid for so long.
       console.error('Error loading chains:', error)
+      setLoadError(error?.message || 'Could not load chains')
     }
   }, [])
 
@@ -56,7 +64,7 @@ export default function ChainsPage() {
           .select(select)
           .eq('kind', 'goal')
           .eq('started_by_user_id', userId)
-          .order('created_at', { ascending: false }),
+          .order('started_at', { ascending: false }),
 
         supabase
           .from('chain_contributions')
@@ -70,6 +78,8 @@ export default function ChainsPage() {
           .eq('user_id', userId),
       ])
 
+      if (createdRes.error) throw createdRes.error
+      if (contributionsRes.error) throw contributionsRes.error
       if (createdRes.data) setCreated(createdRes.data as Chain[])
 
       if (contributionsRes.data) {
@@ -86,8 +96,10 @@ export default function ChainsPage() {
         }
         setJoined(list)
       }
-    } catch (error) {
+      setLoadError(null)
+    } catch (error: any) {
       console.error('Error loading my chains:', error)
+      setLoadError(error?.message || 'Could not load your chains')
     }
   }, [])
 
@@ -171,7 +183,12 @@ export default function ChainsPage() {
             </button>
           </div>
 
-          {tab === 'discover' ? (
+          {loadError ? (
+            <div className="card border-coral-red/30 bg-coral-red/5 text-center py-8">
+              <p className="text-coral-red font-semibold mb-2">Could not load chains</p>
+              <p className="text-warm-white/50 text-sm break-words">{loadError}</p>
+            </div>
+          ) : tab === 'discover' ? (
             chains.length === 0 ? (
               emptyState
             ) : (
