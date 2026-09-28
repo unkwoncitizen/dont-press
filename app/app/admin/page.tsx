@@ -297,15 +297,33 @@ export default function AdminPage() {
     }
   }
 
+  // Permanent deletion is the one action here that cannot be undone, so it is
+  // deliberately awkward: a typed confirmation naming the exact post, and the
+  // delete itself goes through purge_story() rather than straight to PostgREST.
+  // The database also refuses a bare DELETE now, so this is belt and braces on
+  // top of a server-side gate rather than the only thing standing in the way.
+  const [purgeTarget, setPurgeTarget] = useState<string | null>(null)
+  const [purgeConfirm, setPurgeConfirm] = useState('')
+  const [purgeError, setPurgeError] = useState('')
+
   const purge = async (id: string) => {
-    if (!confirm(t('confirm_purge'))) return
+    if (purgeConfirm.trim() !== id) return
     setBusyId(id)
+    setPurgeError('')
     try {
-      const { error } = await supabase.from('stories').delete().eq('id', id)
+      const { error } = await supabase.rpc('purge_story', {
+        p_story_id: id,
+        p_confirm: purgeConfirm.trim(),
+      })
       if (error) throw error
+      setPurgeTarget(null)
+      setPurgeConfirm('')
       await loadAll()
-    } catch (error) {
+    } catch (error: any) {
+      // Surfaced, not swallowed. A silent failure here looks identical to
+      // "nothing happened", which is how the original purge bug hid.
       console.error('Error purging story:', error)
+      setPurgeError(error?.message || 'Could not delete this post')
     } finally {
       setBusyId(null)
     }
@@ -609,7 +627,11 @@ export default function AdminPage() {
                           <RotateCcw size={14} />
                         </button>
                         <button
-                          onClick={() => purge(story.id)}
+                          onClick={() => {
+                            setPurgeTarget(purgeTarget === story.id ? null : story.id)
+                            setPurgeConfirm('')
+                            setPurgeError('')
+                          }}
                           disabled={busyId === story.id}
                           title={t('purge_permanently')}
                           className="p-2 rounded-lg text-coral-red/70 hover:bg-coral-red/10 transition disabled:opacity-50"
@@ -630,6 +652,58 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Permanent-delete confirmation. Requires the exact post id typed
+              out, so it cannot be reached by a stray click. */}
+          {purgeTarget && (
+            <div className="card border-coral-red/40 bg-coral-red/5 mt-6">
+              <h3 className="text-base font-display font-bold text-coral-red mb-2">
+                {t('purge_permanently')}
+              </h3>
+              <p className="text-warm-white/60 text-sm mb-4">
+                {t('confirm_purge')}
+              </p>
+              <label className="block text-warm-white/50 text-xs mb-2" htmlFor="purge-confirm">
+                {t('purge_type_id')}
+              </label>
+              <input
+                id="purge-confirm"
+                type="text"
+                value={purgeConfirm}
+                onChange={(e) => setPurgeConfirm(e.target.value)}
+                placeholder={purgeTarget}
+                spellCheck={false}
+                autoComplete="off"
+                className="w-full px-3 py-2 rounded-lg bg-primary-dark/60 border border-coral-red/30 text-warm-white text-sm font-mono focus:outline-none focus:border-coral-red/60"
+              />
+              <p className="text-warm-white/40 text-xs mt-2 font-mono break-all">
+                {purgeTarget}
+              </p>
+              {purgeError && (
+                <p className="text-coral-red text-sm mt-3">{purgeError}</p>
+              )}
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  onClick={() => purge(purgeTarget)}
+                  disabled={busyId === purgeTarget || purgeConfirm.trim() !== purgeTarget}
+                  className="btn-primary text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Trash2 size={14} />
+                  {t('purge_permanently')}
+                </button>
+                <button
+                  onClick={() => {
+                    setPurgeTarget(null)
+                    setPurgeConfirm('')
+                    setPurgeError('')
+                  }}
+                  className="btn-secondary text-sm"
+                >
+                  {t('cancel')}
+                </button>
+              </div>
             </div>
           )}
         </div>

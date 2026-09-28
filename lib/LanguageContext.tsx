@@ -98,6 +98,7 @@ export const translations: Translations = {
   restore_post: { en: "Restore", ar: "استعادة" },
   purge_permanently: { en: "Delete permanently", ar: "حذف نهائي" },
   confirm_purge: { en: "Delete permanently? This also destroys every comment on it. This cannot be undone.", ar: "حذف نهائي؟ سيؤدي أيضاً إلى إتلاف كل التعليقات. لا يمكن التراجع." },
+  purge_type_id: { en: "Type the post ID below to confirm:", ar: "اكتب معرّف المنشور لتأكيد الحذف:" },
   removed_badge: { en: "REMOVED", ar: "محذوف" },
 
   // Admin panel
