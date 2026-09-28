@@ -77,8 +77,10 @@ interface ModReview {
   story_content?: string
   story_photo?: string | null
   chain_title?: string | null
-  // True when the reviewed post or chain no longer exists, so the card can say
-  // so instead of rendering an empty preview.
+  // The post a held comment belongs to, so a reviewer can see the context.
+  comment_parent?: string | null
+  // True when the reviewed content no longer exists, so the card can say so
+  // instead of rendering an empty preview.
   content_missing?: boolean
 }
 
@@ -280,13 +282,20 @@ export default function AdminPage() {
       const rows = reviewsRes.data as any[]
       const storyIds = rows.filter((r) => r.content_type === 'story').map((r) => r.content_id)
       const chainIds = rows.filter((r) => r.content_type === 'chain').map((r) => r.content_id)
+      const commentIds = rows.filter((r) => r.content_type === 'comment').map((r) => r.content_id)
 
-      const [storyRes, chainRes] = await Promise.all([
+      // Three lookups, because the reviewed content lives in three tables. Done
+      // by id in one batch each rather than per row, so a queue of a hundred
+      // still costs three round trips.
+      const [storyRes, chainRes, commentRes] = await Promise.all([
         storyIds.length
           ? supabase.from('stories').select('id, content, photo_url').in('id', storyIds)
           : Promise.resolve({ data: [], error: null }),
         chainIds.length
           ? supabase.from('chains').select('id, title, description, image_url').in('id', chainIds)
+          : Promise.resolve({ data: [], error: null }),
+        commentIds.length
+          ? supabase.from('comments').select('id, content, story_id').in('id', commentIds)
           : Promise.resolve({ data: [], error: null }),
       ])
 
@@ -294,11 +303,14 @@ export default function AdminPage() {
       for (const s of (storyRes.data as any[]) || []) storyById.set(s.id, s)
       const chainById = new Map<string, any>()
       for (const c of (chainRes.data as any[]) || []) chainById.set(c.id, c)
+      const commentById = new Map<string, any>()
+      for (const c of (commentRes.data as any[]) || []) commentById.set(c.id, c)
 
       setReviews(
         rows.map((r) => {
           const story = r.content_type === 'story' ? storyById.get(r.content_id) : null
           const chain = r.content_type === 'chain' ? chainById.get(r.content_id) : null
+          const comment = r.content_type === 'comment' ? commentById.get(r.content_id) : null
           return {
             id: r.id,
             content_type: r.content_type,
@@ -308,11 +320,15 @@ export default function AdminPage() {
             created_at: r.created_at,
             user_id: r.user_id,
             author: r.users?.display_name || r.users?.username || t('user'),
-            story_content: story?.content || chain?.description || '',
+            story_content: story?.content || chain?.description || comment?.content || '',
             story_photo: story?.photo_url || chain?.image_url || null,
+            // A held comment is a reply to a post, so the moderator needs to see
+            // what it is replying to, not just the reply in isolation.
+            comment_parent: comment?.story_id || null,
             // No preview can mean the content is gone, which is worth saying
             // rather than showing an empty card that looks like a bug.
-            content_missing: r.content_type === 'story' ? !story : !chain,
+            content_missing:
+              r.content_type === 'story' ? !story : r.content_type === 'chain' ? !chain : !comment,
           }
         })
       )
@@ -643,9 +659,14 @@ export default function AdminPage() {
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-warm-orange/20 text-warm-orange font-semibold">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-warm-orange/20 text-warm-orange font-semibold uppercase">
                             {r.content_type}
                           </span>
+                          {r.content_type === 'comment' && (
+                            <span className="text-xs text-warm-white/40">
+                              {t('review_comment_on_post')}
+                            </span>
+                          )}
                           <span className="text-xs text-warm-white/50">
                             {r.author} ·{' '}
                             {new Date(r.created_at).toLocaleString(undefined, {

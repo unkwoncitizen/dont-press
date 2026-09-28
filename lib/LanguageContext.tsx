@@ -105,9 +105,11 @@ export const translations: Translations = {
   moderation_check_failed: { en: "We could not check your post just now. Please try again.", ar: "تعذّر فحص منشورك الآن. حاول مرة أخرى." },
   post_pending_title: { en: "Your post is in review", ar: "منشورك قيد المراجعة" },
   post_pending_body: { en: "Something in it needs a quick check by our team, so it is not in the feed yet. You will see it here as soon as it is approved.", ar: "يحتوي على شيء يحتاج إلى مراجعة سريعة من فريقنا، لذلك لم يظهر في القائمة بعد. ستراه هنا بمجرد الموافقة عليه." },
+  comment_pending_notice: { en: "Your comment was sent for a quick review. It will appear once approved.", ar: "تم إرسال تعليقك لمراجعة سريعة. سيظهر بمجرد الموافقة عليه." },
   tab_pending: { en: "Pending", ar: "قيد المراجعة" },
   admin_nothing_pending: { en: "Nothing waiting for review.", ar: "لا يوجد شيء بانتظار المراجعة." },
   review_content_missing: { en: "This content no longer exists. Rejecting it will just clear the queue.", ar: "لم يعد هذا المحتوى موجوداً. الرفض سيزيله من القائمة فقط." },
+  review_comment_on_post: { en: "reply to a post", ar: "رد على منشور" },
   approve: { en: "Approve", ar: "موافقة" },
   reject: { en: "Reject", ar: "رفض" },
 
