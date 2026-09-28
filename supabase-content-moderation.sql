@@ -125,12 +125,24 @@ REVOKE ALL ON public.moderation_secrets FROM anon, authenticated;
 --
 -- The client cannot skip this. It cannot ask for flagged=false and get it,
 -- because flagged is inside the signed payload.
+--
+-- All six parameters are required, with no defaults. Defaults here looked
+-- tidier but broke PostgREST's function resolution: a call that included
+-- p_moderation_token came back as 42883 "No function matches the given name
+-- and argument types" while a call omitting it resolved fine, which reads as
+-- "the function is broken" rather than "the argument list is wrong". Requiring
+-- all six and having the client always send all six removes the whole class of
+-- problem.
+-- Dropped rather than replaced, because CREATE OR REPLACE cannot remove a
+-- parameter default (42P13) and this version of the signature has none.
+DROP FUNCTION IF EXISTS public.submit_story(TEXT, UUID, UUID, TEXT, BOOLEAN, TEXT);
+
 CREATE OR REPLACE FUNCTION public.submit_story(
   p_content       TEXT,
-  p_challenge_id   UUID,
+  p_challenge_id  UUID,
   p_assignment_id UUID,
-  p_photo_url     TEXT DEFAULT NULL,
-  p_is_anonymous  BOOLEAN DEFAULT false,
+  p_photo_url     TEXT,
+  p_is_anonymous  BOOLEAN,
   p_moderation_token TEXT
 )
 RETURNS JSONB
@@ -179,7 +191,17 @@ BEGIN
   END IF;
 
   v_parts := string_to_array(p_moderation_token, '.');
-  IF array_length(v_parts, 1) IS DISTINCT FROM 3 THEN
+  IF p_moderation_token IS NULL OR array_length(v_parts, 1) IS DISTINCT FROM 3 THEN
+    RAISE EXCEPTION 'This post has not been checked. Please try again.' USING ERRCODE = '42501';
+  END IF;
+
+  -- Validate the shape before casting. Without this a malformed token raises
+  -- a raw "invalid input syntax for type boolean" from the cast below, which
+  -- tells an attacker exactly which part of the check failed.
+  IF v_parts[1] NOT IN ('true', 'false') THEN
+    RAISE EXCEPTION 'This post has not been checked. Please try again.' USING ERRCODE = '42501';
+  END IF;
+  IF v_parts[2] !~ '^[0-9]+$' OR v_parts[3] !~ '^[0-9a-f]{64}$' THEN
     RAISE EXCEPTION 'This post has not been checked. Please try again.' USING ERRCODE = '42501';
   END IF;
 
@@ -187,8 +209,24 @@ BEGIN
   v_expires := v_parts[2]::bigint;
   v_actual  := v_parts[3];
 
+  -- extensions.hmac, and every argument cast to text.
+  --
+  -- Two separate traps here, both of which make this function fail on its very
+  -- first execution while still existing in pg_proc:
+  --   1. On Supabase, pgcrypto lives in the `extensions` schema, not `public`.
+  --      A SECURITY DEFINER function that pins search_path therefore cannot see
+  --      an unqualified `hmac`.
+  --   2. `'sha256'` as a bare literal is `unknown`, and hmac(unknown, unknown,
+  --      unknown) matches no overload. The casts are required, not stylistic.
+  -- Symptom of getting either wrong: "function hmac(text, text, unknown) does
+  -- not exist", which reads as a resolution failure and sends you hunting the
+  -- PostgREST schema cache instead of the function body.
   v_expected := encode(
-    hmac(v_user::text || '|' || v_parts[1] || '|' || v_parts[2], v_secret, 'sha256'),
+    extensions.hmac(
+      (v_user::text || '|' || v_parts[1] || '|' || v_parts[2])::text,
+      v_secret::text,
+      'sha256'::text
+    ),
     'hex'
   );
 
@@ -320,7 +358,20 @@ CREATE POLICY "Anyone can read live stories" ON public.stories
 -- substitute for the other.
 --
 -- ============================================================================
--- 8. Verification
+-- 9. Reload PostgREST's schema cache
+-- ============================================================================
+-- PostgREST caches the function list in memory. A function created while the
+-- cache was warm is invisible to /rest/v1/rpc/ and every call fails with
+-- "No function matches the given name and argument types" (42883) even though
+-- the function plainly exists in pg_proc. Verified: that exact symptom, and
+-- this is the fix.
+--
+-- Without this line, submit_story looks broken rather than newly created, and
+-- the obvious "fix" is to start debugging the wrong thing.
+NOTIFY pgrst, 'reload schema';
+
+-- ============================================================================
+-- Verification
 -- ============================================================================
 --
 --   -- must be false: the client can no longer insert posts directly
@@ -333,6 +384,18 @@ CREATE POLICY "Anyone can read live stories" ON public.stories
 --   -- the feed must not return held posts. Submit one with a forged token
 --   -- (any three dot-separated parts) and it must raise 42501 rather than
 --   -- create the post.
+--
+--   -- after a fresh apply, confirm PostgREST can actually see the function
+--   -- (a 42883 or PGRST202 here means the cache reload above did not take
+--   -- effect; run the NOTIFY on its own afterwards)
+--   select proname, pg_get_function_identity_arguments(oid)
+--   from pg_proc where proname = 'submit_story';
+--
+--   -- and confirm the function body actually runs. A plpgsql body is compiled
+--   -- on first call, so a body that cannot compile still shows up perfectly
+--   -- in pg_proc and passes every "is it rejected?" test, because the crash
+--   -- looks exactly like a rejection.
+--   select encode(extensions.hmac('a'::text, 'b'::text, 'sha256'::text), 'hex');
 --
 -- ============================================================================
 -- NOT INCLUDED, AND WORTH SAYING OUT LOUD

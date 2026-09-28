@@ -30,29 +30,22 @@ const TOKEN_TTL_SECONDS = 300
 const MAX_TEXT_CHARS = 4000
 
 export async function POST(request: Request) {
-  const openaiKey = process.env.OPENAI_API_KEY
-  const secret = process.env.MODERATION_SECRET
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!openaiKey || !secret || !supabaseUrl || !supabaseAnonKey) {
-    console.error('[moderate] not configured:', {
-      openai: !!openaiKey,
-      secret: !!secret,
-      supabaseUrl: !!supabaseUrl,
-      supabaseAnonKey: !!supabaseAnonKey,
-    })
-    return json({ error: 'moderation_not_configured' }, 503)
-  }
-
-  // Identify the caller from their access token. The token is only used to
-  // read the user id; every write still goes through RLS or a database
-  // function. An unauthenticated call cannot obtain a token, so it cannot
-  // obtain a verdict.
+  // Identify the caller first. The token is only used to read the user id;
+  // every write still goes through RLS or a database function. An
+  // unauthenticated call cannot obtain a token, so it cannot obtain a verdict.
+  //
+  // Authentication is deliberately checked before the configuration check, so
+  // an anonymous caller learns nothing about how this service is set up.
   const authHeader = request.headers.get('authorization') || ''
   const accessToken = authHeader.replace(/^Bearer\s+/i, '').trim()
   if (!accessToken) {
     return json({ error: 'not_signed_in' }, 401)
+  }
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return json({ error: 'moderation_not_configured' }, 503)
   }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey)
@@ -76,10 +69,10 @@ export async function POST(request: Request) {
     return json({ error: 'nothing_to_check' }, 400)
   }
 
-  // Only our own storage is accepted as an image source. Without this the
-  // endpoint would fetch any URL a caller supplies, which turns it into a
-  // server-side request forgery primitive against anything the function can
-  // reach.
+  // Only our own storage is accepted as an image source, and this runs before
+  // the provider call. Without it the endpoint would fetch any URL a caller
+  // supplies, which turns it into a server-side request forgery primitive
+  // against anything the function can reach.
   if (photoUrl) {
     let parsed: URL
     try {
@@ -94,6 +87,18 @@ export async function POST(request: Request) {
     if (!isOurs) {
       return json({ error: 'bad_photo_url' }, 400)
     }
+  }
+
+  // Config gate last of the cheap checks, so the auth and URL guards above are
+  // the ones that decide a malformed request.
+  const openaiKey = process.env.OPENAI_API_KEY
+  const secret = process.env.MODERATION_SECRET
+  if (!openaiKey || !secret) {
+    console.error('[moderate] not configured:', {
+      openai: !!openaiKey,
+      secret: !!secret,
+    })
+    return json({ error: 'moderation_not_configured' }, 503)
   }
 
   const input: Record<string, unknown>[] = []
