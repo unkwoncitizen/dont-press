@@ -99,6 +99,26 @@ export const translations: Translations = {
   purge_permanently: { en: "Delete permanently", ar: "حذف نهائي" },
   confirm_purge: { en: "Delete permanently? This also destroys every comment on it. This cannot be undone.", ar: "حذف نهائي؟ سيؤدي أيضاً إلى إتلاف كل التعليقات. لا يمكن التراجع." },
   purge_type_id: { en: "Type the post ID below to confirm:", ar: "اكتب معرّف المنشور لتأكيد الحذف:" },
+
+  // Automatic content check
+  moderation_unavailable: { en: "Posting is temporarily unavailable. Please try again later.", ar: "النشر غير متاح مؤقتاً. حاول مرة أخرى لاحقاً." },
+  moderation_check_failed: { en: "We could not check your post just now. Please try again.", ar: "تعذّر فحص منشورك الآن. حاول مرة أخرى." },
+  post_pending_title: { en: "Your post is in review", ar: "منشورك قيد المراجعة" },
+  post_pending_body: { en: "Something in it needs a quick check by our team, so it is not in the feed yet. You will see it here as soon as it is approved.", ar: "يحتوي على شيء يحتاج إلى مراجعة سريعة من فريقنا، لذلك لم يظهر في القائمة بعد. ستراه هنا بمجرد الموافقة عليه." },
+  tab_pending: { en: "Pending", ar: "قيد المراجعة" },
+  admin_nothing_pending: { en: "Nothing waiting for review.", ar: "لا يوجد شيء بانتظار المراجعة." },
+  approve: { en: "Approve", ar: "موافقة" },
+  reject: { en: "Reject", ar: "رفض" },
+
+  // Chain moderation (admin)
+  tab_chains: { en: "Chains", ar: "السلاسل" },
+  admin_no_chains: { en: "No chains yet.", ar: "لا توجد سلاسل بعد." },
+  remove_chain: { en: "Remove chain", ar: "إزالة السلسلة" },
+  restore_chain: { en: "Restore chain", ar: "استعادة السلسلة" },
+  confirm_remove_chain: { en: "Remove this chain? It disappears from the app but the contributions stay, so you can restore it.", ar: "إزالة هذه السلسلة؟ تختفي من التطبيق تبقى المساهمات، ويمكنك استعادتها." },
+  chain_removed: { en: "REMOVED", ar: "محذوفة" },
+  chain_contributions_count: { en: "contributions", ar: "مساهمة" },
+  chain_untitled: { en: "Untitled chain", ar: "سلسلة بدون عنوان" },
   removed_badge: { en: "REMOVED", ar: "محذوف" },
 
   // Admin panel

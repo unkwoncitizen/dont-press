@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, Trash2, RotateCcw, FileText, MessageSquare, Home, Flag, Check, X } from 'lucide-react'
+import { Shield, Trash2, RotateCcw, FileText, MessageSquare, Home, Flag, Check, X, Eye, Link2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useIsAdmin } from '@/lib/useIsAdmin'
 import Navigation from '@/components/Navigation'
@@ -48,6 +48,37 @@ interface ModStory {
   comment_count?: number
 }
 
+interface ModChain {
+  id: string
+  title: string | null
+  description: string | null
+  current_amount: number
+  goal_amount: number | null
+  unit: string | null
+  image_url: string | null
+  started_at: string
+  deleted_at: string | null
+  started_by_user_id: string
+  users?: { id: string; username?: string; display_name?: string }
+  author?: string
+  contribution_count?: number
+}
+
+interface ModReview {
+  id: string
+  content_type: string
+  content_id: string
+  reason: string
+  categories: unknown
+  created_at: string
+  user_id: string
+  users?: { id: string; username?: string; display_name?: string }
+  author?: string
+  story_content?: string
+  story_photo?: string | null
+  chain_title?: string | null
+}
+
 export default function AdminPage() {
   const [stories, setStories] = useState<ModStory[]>([])
   const [deleted, setDeleted] = useState<ModStory[]>([])
@@ -57,7 +88,11 @@ export default function AdminPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [busyReport, setBusyReport] = useState<string | null>(null)
   const [delRequests, setDelRequests] = useState<DelRequest[]>([])
-  const [tab, setTab] = useState<'live' | 'removed' | 'reported' | 'requests'>('live')
+  const [chains, setChains] = useState<ModChain[]>([])
+  const [busyChain, setBusyChain] = useState<string | null>(null)
+  const [reviews, setReviews] = useState<ModReview[]>([])
+  const [busyReview, setBusyReview] = useState<string | null>(null)
+  const [tab, setTab] = useState<'live' | 'removed' | 'reported' | 'requests' | 'chains' | 'pending'>('live')
   const { isAdmin, checked } = useIsAdmin()
   const router = useRouter()
   const { t, language } = useLanguage()
@@ -85,7 +120,7 @@ export default function AdminPage() {
         comments (id)
       `
 
-    const [liveRes, removedRes, reportsRes, requestsRes] = await Promise.all([
+    const [liveRes, removedRes, reportsRes, requestsRes, chainsRes, reviewsRes] = await Promise.all([
       supabase
         .from('stories')
         .select(base)
@@ -127,10 +162,36 @@ export default function AdminPage() {
         .eq('status', 'pending')
         .order('created_at', { ascending: true })
         .limit(100),
+
+      supabase
+        .from('chains')
+        .select(`
+          id, title, description, current_amount, goal_amount, unit,
+          image_url, started_at, deleted_at, started_by_user_id,
+          users:started_by_user_id (id, username, display_name),
+          chain_contributions (id)
+        `)
+        .order('started_at', { ascending: false })
+        .limit(100),
+
+      supabase
+        .from('moderation_reviews')
+        .select(`
+          id, content_type, content_id, reason, categories, created_at, user_id,
+          users:user_id (id, username, display_name),
+          stories:content_id (
+            id, content, photo_url
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(100),
     ])
 
     // Report the first failure rather than quietly showing an empty queue.
-    const failure = liveRes.error || removedRes.error || reportsRes.error || requestsRes.error
+    const failure =
+      liveRes.error || removedRes.error || reportsRes.error || requestsRes.error ||
+      chainsRes.error || reviewsRes.error
     if (failure) {
       console.error('Moderation panel query failed:', failure)
       setLoadError(failure.message)
@@ -191,8 +252,83 @@ export default function AdminPage() {
       )
     }
 
+    if (chainsRes.data) {
+      setChains(
+        (chainsRes.data as any[]).map((c) => ({
+          ...c,
+          author: c.users?.display_name || c.users?.username || t('user'),
+          contribution_count: Array.isArray(c.chain_contributions)
+            ? c.chain_contributions.length
+            : 0,
+        }))
+      )
+    }
+
+    if (reviewsRes.data) {
+      setReviews(
+        (reviewsRes.data as any[]).map((r) => {
+          const story = Array.isArray(r.stories) ? r.stories[0] : r.stories
+          return {
+            id: r.id,
+            content_type: r.content_type,
+            content_id: r.content_id,
+            reason: r.reason,
+            categories: r.categories,
+            created_at: r.created_at,
+            user_id: r.user_id,
+            author: r.users?.display_name || r.users?.username || t('user'),
+            story_content: story?.content || '',
+            story_photo: story?.photo_url || null,
+          }
+        })
+      )
+    }
+
     setLoading(false)
   }, [isAdmin, t])
+
+  // Chains are removed by hiding them, never destroyed. A chain is
+  // collaborative and its URL may already have been shared, so a removal has
+  // to stay reversible. RLS allows only moderators to touch deleted_at, and a
+  // member has no UPDATE policy on chains at all.
+  const setChainRemoved = async (id: string, removed: boolean) => {
+    setBusyChain(id)
+    try {
+      const { error } = await supabase
+        .from('chains')
+        .update({
+          deleted_at: removed ? new Date().toISOString() : null,
+          deleted_by: removed ? null : null,
+        })
+        .eq('id', id)
+      if (error) throw error
+      await loadAll()
+    } catch (error: any) {
+      console.error('Error updating chain:', error)
+      setLoadError(error?.message || 'Could not update the chain')
+    } finally {
+      setBusyChain(null)
+    }
+  }
+
+  const decideReview = async (reviewId: string, approve: boolean) => {
+    setBusyReview(reviewId)
+    setReviews((prev) => prev.filter((r) => r.id !== reviewId))
+    try {
+      const { error } = await supabase.rpc('resolve_moderation_review', {
+        p_review_id: reviewId,
+        p_approve: approve,
+      })
+      if (error) throw error
+      await loadAll()
+    } catch (error: any) {
+      console.error('Error resolving review:', error)
+      setLoadError(error?.message || 'Could not resolve the review')
+      await loadAll()
+    } finally {
+      setBusyReview(null)
+    }
+  }
 
   useEffect(() => {
     loadAll()
@@ -427,6 +563,28 @@ export default function AdminPage() {
                 {t('tab_reported')} ({reports.length})
               </span>
             </button>
+            <button
+              onClick={() => setTab('pending')}
+              className={`px-5 py-2.5 rounded-2xl font-semibold transition text-sm ${
+                tab === 'pending' ? 'bg-coral-red text-white' : 'bg-warm-white/10 text-warm-white hover:bg-warm-white/20'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Eye size={15} />
+                {t('tab_pending')} ({reviews.length})
+              </span>
+            </button>
+            <button
+              onClick={() => setTab('chains')}
+              className={`px-5 py-2.5 rounded-2xl font-semibold transition text-sm ${
+                tab === 'chains' ? 'bg-coral-red text-white' : 'bg-warm-white/10 text-warm-white hover:bg-warm-white/20'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Link2 size={15} />
+                {t('tab_chains')} ({chains.length})
+              </span>
+            </button>
           </div>
 
           {loadError && (
@@ -438,7 +596,134 @@ export default function AdminPage() {
           {/* Each tab renders from its own slice. The loading gate applies only
               to the two post lists, so a pending refresh never blanks the
               request queue. */}
-          {tab === 'reported' ? (
+          {tab === 'pending' ? (
+            reviews.length === 0 ? (
+              <div className="card text-center py-12">
+                <div className="text-5xl mb-4">✨</div>
+                <p className="text-warm-white/50 text-sm">{t('admin_nothing_pending')}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((r) => (
+                  <div key={r.id} className="card">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-warm-orange/20 text-warm-orange font-semibold">
+                            {r.content_type}
+                          </span>
+                          <span className="text-xs text-warm-white/50">
+                            {r.author} ·{' '}
+                            {new Date(r.created_at).toLocaleString(undefined, {
+                              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-warm-white/40">{r.reason}</p>
+                        {Array.isArray(r.categories) && (r.categories as string[]).length > 0 && (
+                          <p className="text-xs text-coral-red/80 mt-1">
+                            {(r.categories as string[]).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {r.story_photo && (
+                      <img
+                        src={r.story_photo}
+                        alt=""
+                        className="w-full max-h-64 object-cover rounded-lg mb-3"
+                      />
+                    )}
+
+                    {r.story_content && (
+                      <p className="text-warm-white/80 text-sm mb-4 whitespace-pre-wrap break-words">
+                        {r.story_content}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => decideReview(r.id, true)}
+                        disabled={busyReview === r.id}
+                        className="btn-secondary text-xs !py-2 inline-flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Check size={14} />
+                        {t('approve')}
+                      </button>
+                      <button
+                        onClick={() => decideReview(r.id, false)}
+                        disabled={busyReview === r.id}
+                        className="btn-secondary text-xs !py-2 inline-flex items-center gap-1.5 text-coral-red disabled:opacity-50"
+                      >
+                        <X size={14} />
+                        {t('reject')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : tab === 'chains' ? (
+            chains.length === 0 ? (
+              <div className="card text-center py-12">
+                <div className="text-5xl mb-4">🔗</div>
+                <p className="text-warm-white/50 text-sm">{t('admin_no_chains')}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {chains.map((c) => (
+                  <div
+                    key={c.id}
+                    className={`card flex items-center gap-3 ${c.deleted_at ? 'opacity-60' : ''}`}
+                  >
+                    {c.image_url && (
+                      <img src={c.image_url} alt="" className="w-12 h-12 object-cover rounded-lg shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-warm-white font-semibold text-sm truncate">
+                          {c.title || t('chain_untitled')}
+                        </p>
+                        {c.deleted_at && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-coral-red/20 text-coral-red font-semibold shrink-0">
+                            {t('chain_removed')}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-warm-white/50 text-xs truncate">
+                        {c.author} · {c.current_amount}/{c.goal_amount} {c.unit} ·{' '}
+                        {c.contribution_count} {t('chain_contributions_count')}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      {c.deleted_at ? (
+                        <button
+                          onClick={() => setChainRemoved(c.id, false)}
+                          disabled={busyChain === c.id}
+                          title={t('restore_chain')}
+                          className="p-2 rounded-lg bg-warm-white/10 text-warm-white hover:bg-warm-white/20 transition disabled:opacity-50"
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            if (confirm(t('confirm_remove_chain'))) setChainRemoved(c.id, true)
+                          }}
+                          disabled={busyChain === c.id}
+                          title={t('remove_chain')}
+                          className="p-2 rounded-lg text-coral-red/70 hover:bg-coral-red/10 transition disabled:opacity-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : tab === 'reported' ? (
             reports.length === 0 ? (
               <div className="card text-center py-12">
                 <div className="text-5xl mb-4">✨</div>
