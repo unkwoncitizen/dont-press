@@ -110,6 +110,28 @@ export const translations: Translations = {
   admin_nothing_pending: { en: "Nothing waiting for review.", ar: "لا يوجد شيء بانتظار المراجعة." },
   review_content_missing: { en: "This content no longer exists. Rejecting it will just clear the queue.", ar: "لم يعد هذا المحتوى موجوداً. الرفض سيزيله من القائمة فقط." },
   review_comment_on_post: { en: "reply to a post", ar: "رد على منشور" },
+
+  // Notifications
+  notifications: { en: "Notifications", ar: "الإشعارات" },
+  no_notifications: { en: "Nothing here yet.", ar: "لا يوجد شيء هنا بعد." },
+  mark_all_read: { en: "Mark all read", ar: "تعليم الكل كمقروء" },
+  notif_commented: { en: "commented on your post", ar: "علّق على منشورك" },
+  notif_reacted: { en: "reacted to your post", ar: "تفاعل مع منشورك" },
+  notif_contributed: { en: "contributed to your chain", ar: "ساهم في سلسلتك" },
+
+  // Bulk moderation
+  select_all: { en: "Select all", ar: "تحديد الكل" },
+  clear_selection: { en: "Clear", ar: "إلغاء التحديد" },
+  selected_count: { en: "selected", ar: "محدد" },
+  bulk_remove: { en: "Remove selected", ar: "إزالة المحدد" },
+  bulk_restore: { en: "Restore selected", ar: "استعادة المحدد" },
+  bulk_delete: { en: "Delete permanently", ar: "حذف نهائي" },
+  bulk_approve: { en: "Approve selected", ar: "موافقة على المحدد" },
+  bulk_reject: { en: "Reject selected", ar: "رفض المحدد" },
+  confirm_bulk_remove: { en: "Remove the selected posts? They are hidden but fully recoverable.", ar: "إزالة المنشورات المحددة؟ ستُخفى لكنها قابلة للاستعادة بالكامل." },
+  confirm_bulk_restore: { en: "Restore the selected posts?", ar: "استعادة المنشورات المحددة؟" },
+  confirm_bulk_delete: { en: "Permanently delete the selected posts? This cannot be undone, and it destroys every comment on them.", ar: "حذف نهائي للمنشورات المحددة؟ لا يمكن التراجع، وسيؤدي إلى إتلاف كل التعليقات عليها." },
+  bulk_max_warning: { en: "Select at most 50 at a time.", ar: "حدد 50 كحد أقصى في المرة الواحدة." },
   approve: { en: "Approve", ar: "موافقة" },
   reject: { en: "Reject", ar: "رفض" },
 

@@ -337,6 +337,90 @@ export default function AdminPage() {
     setLoading(false)
   }, [isAdmin, t])
 
+  // Bulk selection. Set-based rather than per-item, so clearing twenty bad
+  // posts is one dialog rather than twenty. Every action is still a single
+  // confirmed call, and the confirmation word is asked once for the batch.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selectedReviews, setSelectedReviews] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const [bulkConfirmWord, setBulkConfirmWord] = useState('')
+  const [bulkPrompt, setBulkPrompt] = useState<null | 'remove' | 'restore' | 'purge'>(null)
+
+  // The database caps a batch at 50. Trimming in the UI as well means the button
+  // is never offered in a state the server will reject.
+  const BULK_MAX = 50
+
+  const toggleIn = (set: Set<string>, id: string) => {
+    const next = new Set(set)
+    if (next.has(id)) next.delete(id)
+    else if (next.size < BULK_MAX) next.add(id)
+    return next
+  }
+  const toggleStory = (id: string) => setSelected((prev) => toggleIn(prev, id))
+  const toggleReview = (id: string) => setSelectedReviews((prev) => toggleIn(prev, id))
+
+  const allVisibleSelected = (list: { id: string }[]) =>
+    list.length > 0 && list.every((x) => selected.has(x.id))
+
+  const selectAllVisible = (list: { id: string }[]) =>
+    setSelected(list.length <= BULK_MAX ? new Set(list.map((x) => x.id)) : new Set(list.slice(0, BULK_MAX).map((x) => x.id)))
+
+  const clearSelection = () => { setSelected(new Set()); setBulkConfirmWord(''); setBulkError(null) }
+
+  const runBulk = async (action: 'remove' | 'restore' | 'purge') => {
+    const ids = Array.from(selected)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    setBulkError(null)
+    try {
+      if (action === 'remove') {
+        const { error } = await supabase.rpc('bulk_soft_delete_stories', { p_story_ids: ids })
+        if (error) throw error
+      } else if (action === 'restore') {
+        const { error } = await supabase.rpc('bulk_restore_stories', { p_story_ids: ids })
+        if (error) throw error
+      } else {
+        const { error } = await supabase.rpc('bulk_purge_stories', {
+          p_story_ids: ids,
+          p_confirm: bulkConfirmWord,
+        })
+        if (error) throw error
+      }
+      clearSelection()
+      setBulkPrompt(null)
+      await loadAll()
+    } catch (error: any) {
+      // Surfaced, not swallowed: a bulk action that silently fails looks
+      // identical to one that worked.
+      console.error('Bulk action failed:', error)
+      setBulkError(error?.message || 'The bulk action failed')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const runBulkReviews = async (approve: boolean) => {
+    const ids = Array.from(selectedReviews)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    setBulkError(null)
+    try {
+      const { error } = await supabase.rpc('bulk_resolve_reviews', {
+        p_review_ids: ids,
+        p_approve: approve,
+      })
+      if (error) throw error
+      setSelectedReviews(new Set())
+      await loadAll()
+    } catch (error: any) {
+      console.error('Bulk review failed:', error)
+      setBulkError(error?.message || 'The bulk action failed')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   // Chains are removed by hiding them, never destroyed. A chain is
   // collaborative and its URL may already have been shared, so a removal has
   // to stay reversible. RLS allows only moderators to touch deleted_at, and a
@@ -649,6 +733,144 @@ export default function AdminPage() {
             </div>
           )}
 
+          {bulkError && (
+            <div className="bg-coral-red/20 border border-coral-red text-coral-red px-4 py-3 rounded-xl mb-4 text-xs break-words">
+              {bulkError}
+            </div>
+          )}
+
+          {/* Bulk bar. Appears only with something selected, so it never takes
+              up room in a queue nobody is acting on. */}
+          {selected.size > 0 && (
+            <div className="card !p-3 mb-4 sticky top-24 z-30 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => selectAllVisible(list)}
+                className="text-xs text-warm-white/60 hover:text-warm-white transition"
+              >
+                {t('select_all')}
+              </button>
+              <span className="text-warm-white/20">|</span>
+              <span className="text-sm font-semibold text-warm-white">
+                {selected.size} {t('selected_count')}
+              </span>
+              <span className="text-warm-white/20">|</span>
+
+              {list.some((s) => !s.deleted_at) && (
+                <button
+                  onClick={() => { setBulkPrompt('remove'); setBulkConfirmWord('') }}
+                  disabled={bulkBusy}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-coral-red/20 text-coral-red hover:bg-coral-red/30 transition disabled:opacity-50"
+                >
+                  {t('bulk_remove')}
+                </button>
+              )}
+              {list.some((s) => s.deleted_at) && (
+                <button
+                  onClick={() => { setBulkPrompt('restore'); setBulkConfirmWord('') }}
+                  disabled={bulkBusy}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-warm-white/10 text-warm-white hover:bg-warm-white/20 transition disabled:opacity-50"
+                >
+                  {t('bulk_restore')}
+                </button>
+              )}
+              <button
+                onClick={() => { setBulkPrompt('purge'); setBulkConfirmWord('') }}
+                disabled={bulkBusy}
+                className="text-xs px-3 py-1.5 rounded-lg text-coral-red hover:bg-coral-red/10 transition disabled:opacity-50"
+              >
+                {t('bulk_delete')}
+              </button>
+              <button
+                onClick={clearSelection}
+                disabled={bulkBusy}
+                className="text-xs text-warm-white/50 hover:text-warm-white transition ml-auto disabled:opacity-50"
+              >
+                {t('clear_selection')}
+              </button>
+            </div>
+          )}
+
+          {selectedReviews.size > 0 && (
+            <div className="card !p-3 mb-4 sticky top-24 z-30 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-warm-white">
+                {selectedReviews.size} {t('selected_count')}
+              </span>
+              <span className="text-warm-white/20">|</span>
+              <button
+                onClick={() => runBulkReviews(true)}
+                disabled={bulkBusy}
+                className="text-xs px-3 py-1.5 rounded-lg bg-warm-white/10 text-warm-white hover:bg-warm-white/20 transition disabled:opacity-50"
+              >
+                {t('bulk_approve')}
+              </button>
+              <button
+                onClick={() => runBulkReviews(false)}
+                disabled={bulkBusy}
+                className="text-xs px-3 py-1.5 rounded-lg bg-coral-red/20 text-coral-red hover:bg-coral-red/30 transition disabled:opacity-50"
+              >
+                {t('bulk_reject')}
+              </button>
+              <button
+                onClick={() => setSelectedReviews(new Set())}
+                disabled={bulkBusy}
+                className="text-xs text-warm-white/50 hover:text-warm-white transition ml-auto disabled:opacity-50"
+              >
+                {t('clear_selection')}
+              </button>
+            </div>
+          )}
+
+          {/* Bulk confirmation. One dialog for the whole batch, with the typed
+              word for the irreversible case only. */}
+          {bulkPrompt && (
+            <div className="card border-coral-red/40 bg-coral-red/5 mt-2 mb-4">
+              <p className="text-warm-white/80 text-sm mb-4">
+                {bulkPrompt === 'remove'
+                  ? t('confirm_bulk_remove')
+                  : bulkPrompt === 'restore'
+                  ? t('confirm_bulk_restore')
+                  : t('confirm_bulk_delete')}
+                {' '}
+                <span className="font-semibold">{selected.size}</span>
+              </p>
+
+              {bulkPrompt === 'purge' && (
+                <>
+                  <label className="block text-warm-white/50 text-xs mb-2" htmlFor="bulk-confirm">
+                    {t('purge_type_yes')}
+                  </label>
+                  <input
+                    id="bulk-confirm"
+                    type="text"
+                    value={bulkConfirmWord}
+                    onChange={(e) => setBulkConfirmWord(e.target.value)}
+                    placeholder="YES"
+                    spellCheck={false}
+                    autoComplete="off"
+                    className="w-full px-3 py-2 rounded-lg bg-primary-dark/60 border border-coral-red/30 text-warm-white text-sm font-mono focus:outline-none focus:border-coral-red/60"
+                  />
+                </>
+              )}
+
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  onClick={() => runBulk(bulkPrompt)}
+                  disabled={bulkBusy || (bulkPrompt === 'purge' && bulkConfirmWord.trim().toUpperCase() !== 'YES')}
+                  className="btn-primary text-sm inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {bulkBusy ? t('loading') : bulkPrompt === 'remove' ? t('bulk_remove') : bulkPrompt === 'restore' ? t('bulk_restore') : t('bulk_delete')}
+                </button>
+                <button
+                  onClick={() => { setBulkPrompt(null); setBulkConfirmWord('') }}
+                  disabled={bulkBusy}
+                  className="btn-secondary text-sm disabled:opacity-50"
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Each tab renders from its own slice. The loading gate applies only
               to the two post lists, so a pending refresh never blanks the
               request queue. */}
@@ -661,8 +883,18 @@ export default function AdminPage() {
             ) : (
               <div className="space-y-4">
                 {reviews.map((r) => (
-                  <div key={r.id} className="card">
+                  <div
+                    key={r.id}
+                    className={`card ${selectedReviews.has(r.id) ? 'ring-1 ring-coral-red/60' : ''}`}
+                  >
                     <div className="flex items-start justify-between gap-3 mb-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedReviews.has(r.id)}
+                        onChange={() => toggleReview(r.id)}
+                        aria-label={t('select_all')}
+                        className="w-4 h-4 mt-1 rounded border-warm-white/30 bg-transparent accent-coral-red shrink-0 cursor-pointer"
+                      />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <span className="text-xs px-2 py-0.5 rounded-full bg-warm-orange/20 text-warm-orange font-semibold uppercase">
@@ -929,8 +1161,17 @@ export default function AdminPage() {
               {list.map((story) => (
                 <div
                   key={story.id}
-                  className={`card !p-3 flex items-center gap-3 ${story.deleted_at ? 'opacity-60' : ''}`}
+                  className={`card !p-3 flex items-center gap-3 ${story.deleted_at ? 'opacity-60' : ''} ${
+                    selected.has(story.id) ? 'ring-1 ring-coral-red/60' : ''
+                  }`}
                 >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(story.id)}
+                    onChange={() => toggleStory(story.id)}
+                    aria-label={t('select_all')}
+                    className="w-4 h-4 rounded border-warm-white/30 bg-transparent accent-coral-red shrink-0 cursor-pointer"
+                  />
                   {/* No photo here on purpose: the queue only needs who, when
                       and a line of text, and images make it heavy to scan. */}
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-coral-red to-warm-orange flex items-center justify-center text-white text-xs font-bold shrink-0">

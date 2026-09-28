@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Home, Compass, Zap, Link2, User, LogOut, Shield } from 'lucide-react'
 import { useIsAdmin } from '@/lib/useIsAdmin'
 import { useLanguage, LanguageToggle } from '@/lib/LanguageContext'
+import NotificationBell from '@/components/NotificationBell'
 
 export default function Navigation() {
   const [user, setUser] = useState<any>(null)
@@ -86,6 +87,7 @@ export default function Navigation() {
 
           <div className="flex items-center gap-4">
             <LanguageToggle />
+            {user && <NotificationBell />}
             <Link
               href="/app/press"
               className="bg-coral-red text-white px-8 py-3 rounded-full font-display font-bold text-lg hover:scale-105 transition-transform"
@@ -111,6 +113,7 @@ export default function Navigation() {
         </Link>
         <div className="flex items-center gap-2">
           <LanguageToggle />
+          {user && <NotificationBell />}
           <button
             onClick={handleSignOut}
             disabled={signingOut}
