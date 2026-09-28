@@ -53,11 +53,18 @@ UPDATE public.comments SET moderation_status = 'approved' WHERE moderation_statu
 -- All parameters required, no defaults, for the same reason as submit_story: a
 -- defaulted signature confused PostgREST's function resolution and every call
 -- failed with 42883.
+-- No parent_id parameter, deliberately. Threaded replies were sketched in here
+-- first, but public.comments has no parent_id column and the app has no reply
+-- state, so the value could never be stored. A parameter the caller must supply
+-- and the function then discards is worse than useless: PostgREST matches
+-- functions on the full argument list, so the mismatch made every call fail with
+-- PGRST202 "Searched for the function ... with parameters ..." while the function
+-- sat in pg_proc looking perfectly correct. If threading is ever built, add the
+-- column and the parameter in the same change.
 DROP FUNCTION IF EXISTS public.submit_comment(UUID, UUID, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION public.submit_comment(
   p_story_id          UUID,
-  p_parent_id         UUID,
   p_content           TEXT,
   p_moderation_token  TEXT
 )
@@ -77,6 +84,7 @@ DECLARE
   v_status    TEXT;
   v_reason    TEXT := 'flagged by the automatic check';
   v_story_ok  BOOLEAN;
+  v_max_len   CONSTANT INTEGER := 2000;
 BEGIN
   IF v_user IS NULL THEN
     RAISE EXCEPTION 'You must be signed in.' USING ERRCODE = '42501';
@@ -86,26 +94,30 @@ BEGIN
     RAISE EXCEPTION 'A comment needs some text.' USING ERRCODE = '22023';
   END IF;
 
-  -- You cannot comment on a post that is not visible to you. Without this, a
-  -- held or removed post could still collect comments, and the reply count
-  -- would leak that something exists there.
+  -- A comment is a reply, not an essay. Bounded here rather than only in the
+  -- route, because the route is the client-controlled part and this is the one
+  -- that cannot be bypassed.
+  IF length(p_content) > v_max_len THEN
+    RAISE EXCEPTION 'That comment is too long (max % characters).', v_max_len
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- You cannot comment on a post that is not published.
+  --
+  -- Not even the author of a held post: a held post is not yet visible to
+  -- anyone, and letting replies accumulate on it means that if it is later
+  -- rejected those replies are orphaned, and if it is approved they surface
+  -- having never been reviewed in the context they were written in. Only a
+  -- moderator can comment on a held or removed post.
   SELECT EXISTS (
     SELECT 1 FROM public.stories
     WHERE id = p_story_id
-      AND (deleted_at IS NULL OR public.is_admin())
-      AND (moderation_status = 'approved' OR user_id = v_user OR public.is_admin())
+      AND deleted_at IS NULL
+      AND (moderation_status = 'approved' OR public.is_admin())
   ) INTO v_story_ok;
 
   IF NOT v_story_ok THEN
     RAISE EXCEPTION 'That post is not available for comments.' USING ERRCODE = '42501';
-  END IF;
-
-  -- A reply must point at a comment that exists and is not removed.
-  IF p_parent_id IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM public.comments
-    WHERE id = p_parent_id AND deleted_at IS NULL
-  ) THEN
-    RAISE EXCEPTION 'The comment you are replying to no longer exists.' USING ERRCODE = 'P0002';
   END IF;
 
   SELECT secret INTO v_secret FROM public.moderation_secrets WHERE name = 'submit_story';
@@ -164,9 +176,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.submit_comment(UUID, UUID, TEXT, TEXT) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.submit_comment(UUID, UUID, TEXT, TEXT) FROM anon;
-GRANT EXECUTE ON FUNCTION public.submit_comment(UUID, UUID, TEXT, TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION public.submit_comment(UUID, TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.submit_comment(UUID, TEXT, TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.submit_comment(UUID, TEXT, TEXT) TO authenticated;
 
 -- Close the direct route, which is the entire point.
 REVOKE INSERT ON public.comments FROM anon, authenticated;
@@ -189,10 +201,20 @@ CREATE POLICY "Anyone can read live comments" ON public.comments
 -- ============================================================================
 -- 4. Moderation decisions reach comments
 -- ============================================================================
--- resolve_moderation_review() already handles 'story' and 'chain'. Comments are
--- the third kind of thing a review can point at, so without this a held comment
--- could be approved or rejected and the review row would resolve while the
--- comment's own status never changed. The post would stay invisible forever.
+-- This file redefines resolve_moderation_review(), and so does
+-- supabase-content-moderation.sql. That is a real hazard, not a tidy-up: two
+-- definitions of one function means whichever migration ran last wins, and the
+-- loser's behaviour is silently reverted. It already bit once -- re-applying
+-- the content moderation file after this one stripped the comment branch and
+-- left held comments permanently invisible, with the review row marked resolved
+-- and the comment status untouched.
+--
+-- So the two definitions are kept deliberately identical, and both handle all
+-- three content types. Apply order does not matter.
+--
+-- Comments are the third kind of thing a review can point at. Without this, a
+-- held comment could be approved and the review row would resolve while the
+-- comment's own status never changed.
 DROP FUNCTION IF EXISTS public.resolve_moderation_review(UUID, BOOLEAN);
 
 CREATE OR REPLACE FUNCTION public.resolve_moderation_review(
@@ -274,9 +296,11 @@ NOTIFY pgrst, 'reload schema';
 --   -- must be false: no more direct inserts
 --   select has_table_privilege('authenticated','public.comments','INSERT') as can_insert;
 --
---   -- must be true
+--   -- must be true. The argument list must match exactly: PostgREST resolves a
+--   -- function by its full parameter list, so a mismatch here is PGRST202 rather
+--   -- than a permission error, and the function looks fine in pg_proc.
 --   select has_function_privilege('authenticated',
---     'public.submit_comment(uuid,uuid,text,text)','EXECUTE') as can_submit;
+--     'public.submit_comment(uuid,text,text)','EXECUTE') as can_submit;
 --
 --   -- a post token must NOT work on a comment
 --   select 1;  -- then call submit_comment with a token signed for 'story'

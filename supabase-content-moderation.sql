@@ -311,10 +311,17 @@ BEGIN
 
   v_status := CASE WHEN p_approve THEN 'approved' ELSE 'rejected' END;
 
+  -- All three content types are handled here, not just posts. This function is
+  -- also defined in supabase-comment-moderation.sql and the two must stay
+  -- identical: whichever migration runs last wins, so a version missing the
+  -- comment branch silently leaves held comments permanently invisible even
+  -- after they are approved. That regression is not hypothetical, it happened.
   IF v_review.content_type = 'story' THEN
     UPDATE public.stories SET moderation_status = v_status WHERE id = v_review.content_id;
   ELSIF v_review.content_type = 'chain' THEN
     UPDATE public.chains SET moderation_status = v_status WHERE id = v_review.content_id;
+  ELSIF v_review.content_type = 'comment' THEN
+    UPDATE public.comments SET moderation_status = v_status WHERE id = v_review.content_id;
   END IF;
 
   UPDATE public.moderation_reviews
