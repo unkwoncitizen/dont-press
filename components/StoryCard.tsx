@@ -37,6 +37,7 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
   const [commentText, setCommentText] = useState('')
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
   const [commentError, setCommentError] = useState<string | null>(null)
+  const [commentPending, setCommentPending] = useState(false)
   const [shareFeedback, setShareFeedback] = useState<string | null>(null)
   const [passOnFeedback, setPassOnFeedback] = useState<string | null>(null)
   const [inspiredCount, setInspiredCount] = useState(
@@ -213,49 +214,78 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
 
       const currentUser = session.user
 
-      // Insert comment into Supabase
-      const { data: newCommentData, error } = await supabase
-        .from('comments')
-        .insert({
-          story_id: story.id,
-          user_id: currentUser.id,
-          content: trimmed,
-        })
-        .select(`
-          id,
-          content,
-          user_id,
-          created_at,
-          users:user_id (id, display_name)
-        `)
-        .single()
-
-      if (error) {
-        console.error('Insert with select error:', error)
-        // Attempt insert without join if foreign key relation was strict
-        const { error: simpleErr } = await supabase.from('comments').insert({
-          story_id: story.id,
-          user_id: currentUser.id,
-          content: trimmed,
-        })
-        if (simpleErr) throw simpleErr
-      }
-
-      // Optimistically add comment to UI
-      const newCommentObj = newCommentData || {
-        id: `local-${Date.now()}`,
-        content: trimmed,
-        user_id: currentUser.id,
-        created_at: new Date().toISOString(),
-        users: {
-          display_name:
-            currentUser.user_metadata?.display_name ||
-            currentUser.email?.split('@')[0] ||
-            t('user'),
+      // Content check before anything is created. Comments are the easiest
+      // place on the app to put something nasty under a stranger's post, so
+      // they go through the same server-side check and the same signed token
+      // as posts. Direct inserts into comments are revoked, so this is the only
+      // way a comment gets made.
+      const checkRes = await fetch('/api/moderate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
         },
+        body: JSON.stringify({ text: trimmed, photoUrl: null, contentType: 'comment' }),
+      })
+      const checkData = await checkRes.json()
+      if (!checkRes.ok) {
+        throw new Error(
+          checkData?.error === 'moderation_not_configured'
+            ? t('moderation_unavailable')
+            : t('moderation_check_failed')
+        )
       }
 
-      setComments((prev) => [...prev, newCommentObj])
+      const { data: commentData, error } = await supabase.rpc('submit_comment', {
+        p_story_id: story.id,
+        p_content: trimmed,
+        p_moderation_token: checkData.token,
+      })
+
+      if (error) throw error
+
+      // A held comment is not a failed comment. It exists and the author can
+      // see it, so it is added to the list and marked, rather than being
+      // treated as an error the person has to retry.
+      if (commentData?.moderation_status === 'pending') {
+        setComments((prev) => [
+          ...prev,
+          {
+            id: `pending-${commentData.comment_id}`,
+            content: trimmed,
+            user_id: currentUser.id,
+            created_at: new Date().toISOString(),
+            isPending: true,
+            users: {
+              display_name:
+                currentUser.user_metadata?.display_name ||
+                currentUser.email?.split('@')[0] ||
+                t('user'),
+            },
+          } as any,
+        ])
+        setCommentText('')
+        setShowComments(true)
+        setCommentPending(true)
+        if (onComment) onComment()
+        return
+      }
+
+      setComments((prev) => [
+        ...prev,
+        {
+          id: commentData.comment_id,
+          content: trimmed,
+          user_id: currentUser.id,
+          created_at: new Date().toISOString(),
+          users: {
+            display_name:
+              currentUser.user_metadata?.display_name ||
+              currentUser.email?.split('@')[0] ||
+              t('user'),
+          },
+        } as any,
+      ])
       setCommentText('')
       setShowComments(true)
       if (onComment) onComment()
@@ -765,6 +795,12 @@ export default function StoryCard({ story, onInspire, onComment, onDeleted, canM
           {commentError && (
             <div className="text-xs text-coral-red mt-2 font-medium">
               {commentError}
+            </div>
+          )}
+
+          {commentPending && !commentError && (
+            <div className="text-xs text-warm-orange mt-2 font-medium">
+              {t('comment_pending_notice')}
             </div>
           )}
         </div>

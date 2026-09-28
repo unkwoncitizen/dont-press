@@ -25,14 +25,9 @@ const MODEL = 'omni-moderation-latest'
 // captured token cannot be replayed indefinitely.
 const TOKEN_TTL_SECONDS = 300
 
-// Bound the text we send. The classifier only needs enough to judge, and this
-// keeps a very long post from becoming an unbounded cost.
-const MAX_TEXT_CHARS = 4000
-
 export async function POST(request: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
   // Identify the caller first. The token is only used to read the user id;
   // every write still goes through RLS or a database function. An
   // unauthenticated call cannot obtain a token, so it cannot obtain a verdict.
@@ -55,12 +50,22 @@ export async function POST(request: Request) {
   }
   const userId = userData.user.id
 
-  let body: { text?: unknown; photoUrl?: unknown }
+  let body: { text?: unknown; photoUrl?: unknown; contentType?: unknown }
   try {
     body = await request.json()
   } catch {
     return json({ error: 'bad_request' }, 400)
   }
+
+  // What kind of content is being checked. Part of the signed payload, so a
+  // token issued for a post cannot be spent on a comment. Defaults to 'story'
+  // so a caller that omits it still gets the original behaviour rather than an
+  // unsigned token.
+  const contentType = body.contentType === 'comment' ? 'comment' : 'story'
+
+  // Bound the text we send. The classifier only needs enough to judge, and this
+  // keeps a very long comment from becoming an unbounded cost.
+  const MAX_TEXT_CHARS = contentType === 'comment' ? 2000 : 4000
 
   const text = typeof body.text === 'string' ? body.text.slice(0, MAX_TEXT_CHARS) : ''
   const photoUrl = typeof body.photoUrl === 'string' ? body.photoUrl : null
@@ -140,13 +145,15 @@ export async function POST(request: Request) {
     return json({ error: 'check_failed' }, 502)
   }
 
-  // Sign the verdict. submit_story() recomputes this from a secret the client
-  // has never seen, and rejects the post if it does not match, so a client
-  // cannot talk its way to flagged=false.
+  // Sign the verdict. submit_story() / submit_comment() recompute this from a
+  // secret the client has never seen, and reject the content if it does not
+  // match, so a client cannot talk its way to flagged=false. The content type
+  // is inside the signature, so a token minted for a post cannot be spent on a
+  // comment.
   const expiresAt = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS
   const flagPart = flagged ? 'true' : 'false'
   const signature = createHmac('sha256', secret)
-    .update(`${userId}|${flagPart}|${expiresAt}`)
+    .update(`${userId}|${contentType}|${flagPart}|${expiresAt}`)
     .digest('hex')
 
   const token = `${flagPart}.${expiresAt}.${signature}`

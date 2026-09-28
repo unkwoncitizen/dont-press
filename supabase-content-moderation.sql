@@ -221,9 +221,12 @@ BEGIN
   -- Symptom of getting either wrong: "function hmac(text, text, unknown) does
   -- not exist", which reads as a resolution failure and sends you hunting the
   -- PostgREST schema cache instead of the function body.
+  --
+  -- The '|story|' segment matches the content type signed by the route. It is
+  -- what stops a token issued for a comment being spent here, and vice versa.
   v_expected := encode(
     extensions.hmac(
-      (v_user::text || '|' || v_parts[1] || '|' || v_parts[2])::text,
+      (v_user::text || '|story|' || v_parts[1] || '|' || v_parts[2])::text,
       v_secret::text,
       'sha256'::text
     ),
