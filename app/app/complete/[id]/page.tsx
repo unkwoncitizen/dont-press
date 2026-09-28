@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
+import Link from 'next/link'
 import Navigation from '@/components/Navigation'
 import { Camera, Upload } from 'lucide-react'
 import confetti from 'canvas-confetti'
@@ -14,6 +15,7 @@ export default function CompletePage() {
   // Next 15 made `params` a Promise, which a client component cannot await during render.
   const params = useParams<{ id: string }>()
   const [user, setUser] = useState<any>(null)
+  const [session, setSession] = useState<any>(null)
   const [assignment, setAssignment] = useState<any>(null)
   const [challenge, setChallenge] = useState<any>(null)
   const [storyContent, setStoryContent] = useState('')
@@ -21,6 +23,8 @@ export default function CompletePage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [heldForReview, setHeldForReview] = useState(false)
   const router = useRouter()
   const { t, language } = useLanguage()
   const localizedChallenge = localizeChallenge(challenge, language)
@@ -55,6 +59,8 @@ export default function CompletePage() {
         return
       }
       setUser(session.user)
+      // The access token is needed to call the server-side content check.
+      setSession(session)
       loadAssignment()
     }
     checkUser()
@@ -98,19 +104,36 @@ export default function CompletePage() {
         photoUrl = publicUrl
       }
 
+      // Content check before anything is created. Runs on the server so the
+      // verdict cannot be forged, and hands back a signed token that
+      // submit_story() verifies. Direct inserts into stories are revoked, so
+      // this call is the only way a post gets made.
+      const checkRes = await fetch('/api/moderate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ text: storyContent, photoUrl }),
+      })
+      const checkData = await checkRes.json()
+      if (!checkRes.ok) {
+        throw new Error(
+          checkData?.error === 'moderation_not_configured'
+            ? t('moderation_unavailable')
+            : t('moderation_check_failed')
+        )
+      }
+
       // Create story
-      const { data: storyData, error: storyError } = await supabase
-        .from('stories')
-        .insert({
-          user_id: user.id,
-          challenge_id: challenge.id,
-          assignment_id: assignment.id,
-          content: storyContent,
-          photo_url: photoUrl,
-          is_anonymous: isAnonymous,
-        })
-        .select()
-        .single()
+      const { data: storyData, error: storyError } = await supabase.rpc('submit_story', {
+        p_content: storyContent,
+        p_challenge_id: challenge.id,
+        p_assignment_id: assignment.id,
+        p_photo_url: photoUrl,
+        p_is_anonymous: isAnonymous,
+        p_moderation_token: checkData.token,
+      })
 
       if (storyError) throw storyError
 
@@ -119,6 +142,14 @@ export default function CompletePage() {
         .from('challenge_assignments')
         .update({ status: 'completed', completed_at: new Date().toISOString() })
         .eq('id', assignment.id)
+
+      // A post held for review is not a failed post. It exists, it is just not
+      // in the feed yet, so it gets an honest message instead of confetti that
+      // implies it is already live.
+      if (storyData?.moderation_status === 'pending') {
+        setHeldForReview(true)
+        return
+      }
 
       // 🎉 CELEBRATE WITH CONFETTI!
       confetti({
@@ -131,12 +162,32 @@ export default function CompletePage() {
       setTimeout(() => {
         router.push('/app')
       }, 1500)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting story:', error)
-      alert('Error submitting story. Please try again.')
+      // Surfaced, not alerted: an alert is easy to miss and a silent failure
+      // here looks identical to "nothing happened".
+      setSubmitError(error?.message || t('auth_generic_error'))
     } finally {
       setLoading(false)
     }
+  }
+
+  if (heldForReview) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-dark via-primary-dark to-deep-green/20 flex items-center justify-center px-6">
+        <Navigation />
+        <div className="card text-center max-w-md">
+          <div className="text-5xl mb-4">⏳</div>
+          <h1 className="text-xl font-display font-bold text-warm-white mb-2">
+            {t('post_pending_title')}
+          </h1>
+          <p className="text-warm-white/60 text-sm mb-6">{t('post_pending_body')}</p>
+          <Link href="/app" className="btn-primary inline-block">
+            {t('nav_home')}
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   if (!assignment || !challenge) {
@@ -178,6 +229,12 @@ export default function CompletePage() {
             <h3 className="text-xl font-bold text-warm-white mb-6">
               {t('share_experience')}
             </h3>
+
+            {submitError && (
+              <div className="bg-coral-red/20 border border-coral-red text-coral-red px-4 py-3 rounded-xl text-sm mb-5">
+                {submitError}
+              </div>
+            )}
 
             {/* Story Content */}
             <div className="mb-6">
