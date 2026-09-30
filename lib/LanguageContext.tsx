@@ -111,6 +111,14 @@ export const translations: Translations = {
   review_content_missing: { en: "This content no longer exists. Rejecting it will just clear the queue.", ar: "لم يعد هذا المحتوى موجوداً. الرفض سيزيله من القائمة فقط." },
   review_comment_on_post: { en: "reply to a post", ar: "رد على منشور" },
 
+  // Intro video
+  watch_intro: { en: "Watch the idea", ar: "شاهد الفكرة" },
+  one_press_one_challenge: { en: "One press. One challenge. One small thing that is better because you did it.", ar: "ضغطة واحدة. تحدٍ واحد. شيء صغير أصبح أفضل لأنك فعلته." },
+  play_video: { en: "Play the video", ar: "تشغيل الفيديو" },
+  pause_video: { en: "Pause the video", ar: "إيقاف الفيديو مؤقتاً" },
+  intro_video_alt: { en: "A short film: someone hovers a finger over a large red button, thinks for a moment, then smiles. Intercut with the app itself.", ar: "فيلم قصير: شخص يمرر إصبعه فوق زر أحمر كبير، ويتأمل للحظة، ثم يبتسم. مع مشاهد من التطبيق نفسه." },
+  intro_video_caption: { en: "The idea: one press gives you one small challenge to do something kind. In the app you press, you get a challenge, you do it, and you share what happened.", ar: "الفكرة: ضغطة واحدة تمنحك تحدياً صغيراً لتفعل شيئاً طيباً. في التطبيق تضغط، فتحصل على تحدٍ، وتقوم به، وتشارك ما حدث." },
+
   // Notifications
   notifications: { en: "Notifications", ar: "الإشعارات" },
   no_notifications: { en: "Nothing here yet.", ar: "لا يوجد شيء هنا بعد." },

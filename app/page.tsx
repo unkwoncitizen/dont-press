@@ -3,23 +3,29 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useLanguage, LanguageToggle } from '@/lib/LanguageContext'
+import HeroVideoIntro from '@/components/HeroVideoIntro'
 
 export default function Home() {
   const { t, isArabic } = useLanguage()
   const router = useRouter()
   const [startingCategory, setStartingCategory] = useState<string | null>(null)
 
+  // No per-category description. Eight cards of two-line blurbs was the other
+  // text-heavy block on the page, and the emoji plus the name already say
+  // enough to pick one. The descriptions still exist as translation keys and
+  // are used on the press screen, where there is room for them.
   const categoriesData = [
-    { id: 'good-deed', emoji: '❤️', name: t('cat_good_deed'), desc: t('cat_good_deed_desc') },
-    { id: 'help-someone', emoji: '🤝', name: t('cat_help_someone'), desc: t('cat_help_someone_desc') },
-    { id: 'community', emoji: '🌱', name: t('cat_community'), desc: t('cat_community_desc') },
-    { id: 'give', emoji: '💚', name: t('cat_give'), desc: t('cat_give_desc') },
-    { id: 'creative', emoji: '🎨', name: t('cat_creative'), desc: t('cat_creative_desc') },
-    { id: 'fun', emoji: '😂', name: t('cat_fun'), desc: t('cat_fun_desc') },
-    { id: 'learn-share', emoji: '🧠', name: t('cat_learn_share'), desc: t('cat_learn_share_desc') },
-    { id: 'random', emoji: '🌍', name: t('cat_random'), desc: t('cat_random_desc') },
+    { id: 'good-deed', emoji: '❤️', name: t('cat_good_deed') },
+    { id: 'help-someone', emoji: '🤝', name: t('cat_help_someone') },
+    { id: 'community', emoji: '🌱', name: t('cat_community') },
+    { id: 'give', emoji: '💚', name: t('cat_give') },
+    { id: 'creative', emoji: '🎨', name: t('cat_creative') },
+    { id: 'fun', emoji: '😂', name: t('cat_fun') },
+    { id: 'learn-share', emoji: '🧠', name: t('cat_learn_share') },
+    { id: 'random', emoji: '🌍', name: t('cat_random') },
   ]
 
   // A category picked on the landing page carries the intent through signup so
@@ -42,6 +48,10 @@ export default function Home() {
     }
   }
 
+  // The five steps are no longer rendered here: the video replaced them, and
+  // their text is carried by the video's figcaption and aria-label instead. The
+  // translation keys stay in LanguageContext, where they are still used as the
+  // written description on the press screen.
   const howItWorksSteps = [
     { num: 1, title: t('step1_title'), desc: t('step1_desc') },
     { num: 2, title: t('step2_title'), desc: t('step2_desc') },
@@ -70,51 +80,57 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <div className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-16">
-        <div className="text-center mb-12 animate-float">
-          <h1 className="text-6xl md:text-8xl font-display font-bold text-warm-white mb-4 tracking-tight">
+      {/* Hero Section.
+          Deliberately almost empty: headline, button, one line. The video below
+          does the explaining, which is the point of it. */}
+      <div className="relative min-h-[88vh] flex flex-col items-center justify-center px-6 pt-24">
+        <div className="text-center mb-10 animate-float">
+          <h1 className="text-6xl md:text-8xl font-display font-bold text-warm-white mb-3 tracking-tight">
             {t('dont_press_hero_1')}
           </h1>
-          <h1 className="text-6xl md:text-8xl font-display font-bold text-warm-white mb-8 tracking-tight">
+          <h1 className="text-6xl md:text-8xl font-display font-bold text-warm-white tracking-tight">
             {t('dont_press_hero_2')}
           </h1>
         </div>
 
-        {/* The Button */}
         <Link href="/auth">
-          <button className="press-button mb-8">
+          <button className="press-button mb-6">
             {t('press_verb')}
           </button>
         </Link>
 
-        <p className="text-warm-white/60 text-lg mb-2">
-          {t('pressed_today')}
-        </p>
-        <p className="text-warm-white/40 text-sm max-w-md text-center">
-          {t('after_press_note')}
-        </p>
+        {/* A scroll cue instead of a paragraph. Saying less here is the whole
+            brief, and the page below earns the reader's attention on its own. */}
+        <a
+          href="#intro"
+          className="mt-6 text-warm-white/40 hover:text-warm-white/70 transition text-sm inline-flex items-center gap-2"
+        >
+          {t('watch_intro')}
+          <ChevronDown size={16} className="animate-bounce" />
+        </a>
       </div>
 
-      {/* How It Works */}
-      <div className="max-w-5xl mx-auto px-6 py-20">
-        <h2 className="text-4xl font-display font-bold text-center text-warm-white mb-16">
-          {t('how_it_works')}
-        </h2>
+      {/* Intro video. This replaces the old five-step "How It Works" text
+          block, which was the most text-heavy thing on the page and explained
+          the idea less well in a sentence than the video does in ten seconds.
+          Framed rather than full-bleed on purpose: the clip opens on a screen
+          recording of this very homepage, so behind a full-bleed hero it would
+          show a video of the page it is sitting on. */}
+      <div id="intro" className="max-w-4xl mx-auto px-6 pb-8 scroll-mt-20">
+        <HeroVideoIntro />
+      </div>
 
-        <div className="grid md:grid-cols-5 gap-8">
-          {howItWorksSteps.map((step) => (
-            <div key={step.num} className="text-center">
-              <div className="w-16 h-16 rounded-full bg-coral-red/20 text-coral-red flex items-center justify-center text-2xl font-bold mx-auto mb-4">
-                {step.num}
-              </div>
-              <h3 className="text-xl font-semibold text-warm-white mb-2">{step.title}</h3>
-              <p className="text-warm-white/60 text-sm">
-                {step.desc}
-              </p>
-            </div>
-          ))}
-        </div>
+      {/* How It Works.
+          Was five numbered cards of explanation. Now it is one video and a
+          single line: the same information, in ten seconds of watching instead
+          of a screenful of reading. The step titles survive as an aria-label so
+          the content is still there for a screen reader, and for anyone who
+          would rather read it. */}
+      <div className="max-w-5xl mx-auto px-6 py-14">
+        <h2 className="sr-only">{t('how_it_works')}</h2>
+        <p className="text-center text-warm-white/60 max-w-xl mx-auto">
+          {t('one_press_one_challenge')}
+        </p>
       </div>
 
       {/* Tagline */}
@@ -148,12 +164,11 @@ export default function Home() {
               disabled={startingCategory !== null}
               className="card text-center hover:scale-105 hover:border-coral-red/50 transition-transform cursor-pointer disabled:opacity-60 disabled:cursor-wait"
             >
-              <div className="text-5xl mb-3">{category.emoji}</div>
-              <h3 className="text-lg font-semibold text-warm-white mb-1">
+              <div className="text-4xl mb-2">{category.emoji}</div>
+              <h3 className="text-base font-semibold text-warm-white mb-2">
                 {category.name}
               </h3>
-              <p className="text-sm text-warm-white/60">{category.desc}</p>
-              <div className="mt-3 text-xs text-coral-red font-semibold">
+              <div className="text-xs text-coral-red font-semibold">
                 {startingCategory === category.id ? t('loading') : t('choose_path_cta')}
               </div>
             </button>
